@@ -1,0 +1,24 @@
+{
+  "name": "hidden-oven-functions",
+  "description": "Firebase Cloud Functions for The Hidden Oven",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions,firestore,auth,storage",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "test": "jest --forceExit"
+  },
+  "engines": { "node": "18" },
+  "main": "src/index.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "firebase-admin": "^11.11.0",
+    "firebase-functions": "^4.4.1",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.6.2"
+  },
+  "private": true
+}
