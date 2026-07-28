@@ -1,7 +1,22 @@
 const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
+
+/**
+ * Build a public download URL for a file in the configured bucket.
+ * Uses the Storage Emulator's REST endpoint when running locally
+ * (production storage.googleapis.com URLs aren't reachable there),
+ * and the standard public URL in production.
+ */
+function getPublicUrl(fileName) {
+  const encodedPath = encodeURIComponent(fileName);
+  if (process.env.STORAGE_EMULATOR_HOST) {
+    return `${process.env.STORAGE_EMULATOR_HOST}/v0/b/${bucket.name}/o/${encodedPath}?alt=media`;
+  }
+  return `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+}
 
 /**
  * Write an audit log entry.
@@ -13,7 +28,7 @@ async function writeAuditLog({ orderId = null, actorUid, action, fromStatus = nu
     action,
     fromStatus,
     toStatus,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
   });
 }
 
@@ -37,4 +52,4 @@ async function generateOrderNumber() {
   return `HO-${dateStr}-${String(newCount).padStart(4, "0")}`;
 }
 
-module.exports = { db, bucket, writeAuditLog, generateOrderNumber };
+module.exports = { db, bucket, writeAuditLog, generateOrderNumber, getPublicUrl };

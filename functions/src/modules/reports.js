@@ -1,5 +1,5 @@
 const express = require("express");
-const admin = require("firebase-admin");
+const { Timestamp } = require("firebase-admin/firestore");
 const { db } = require("../utils/db");
 const { requireRole } = require("../middleware/auth");
 
@@ -24,8 +24,8 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
 
     const ordersSnap = await db.collection("orders")
       .where("status", "==", "completed")
-      .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(fromDate))
-      .where("createdAt", "<=", admin.firestore.Timestamp.fromDate(toDate))
+      .where("createdAt", ">=", Timestamp.fromDate(fromDate))
+      .where("createdAt", "<=", Timestamp.fromDate(toDate))
       .get();
 
     const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));

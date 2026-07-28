@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { PasswordInput } from "../components/ui/FormField";
 
 export default function LoginPage({ portalRole }) {
   const { login }    = useAuth();
@@ -50,16 +51,12 @@ export default function LoginPage({ portalRole }) {
                 autoFocus
               />
             </div>
-            <div>
-              <label className="label">Password</label>
-              <input
-                type="password"
-                className="input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            <PasswordInput
+              label="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button type="submit" disabled={loading} className="btn-primary w-full">
               {loading ? "Signing in…" : "Sign in"}

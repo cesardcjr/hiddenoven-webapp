@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 const { db } = require("../utils/db");
 
 /**
@@ -22,7 +22,7 @@ async function onOrderWrite(change, context) {
       type: "order_placed",
       message: `New order ${after.orderNo} received from ${after.customerName}.`,
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
     return null;
   }
@@ -48,7 +48,7 @@ async function onOrderWrite(change, context) {
         toStatus: after.status,
         message,
         read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
   }

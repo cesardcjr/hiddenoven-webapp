@@ -3,7 +3,7 @@ import { api } from "../../lib/api";
 import { AdminLayout } from "../../components/layout/AdminLayout";
 import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
-import { TextInput } from "../../components/ui/FormField";
+import { TextInput, PasswordInput } from "../../components/ui/FormField";
 import { useToast } from "../../components/ui/Toast";
 
 const EMPTY_FORM = { name: "", email: "", phone: "", password: "" };
@@ -113,7 +113,7 @@ export default function AdminStaffPage() {
         <TextInput label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Maria Santos" />
         <TextInput label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="maria@hiddenoven.com" />
         <TextInput label="Phone (optional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="09XXXXXXXXX" />
-        <TextInput label="Temporary Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min. 6 characters" />
+        <PasswordInput label="Temporary Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min. 6 characters" />
         <div className="flex gap-3 justify-end mt-2">
           <button onClick={() => setModalOpen(false)} className="btn-secondary">Cancel</button>
           <button onClick={handleCreate} disabled={saving} className="btn-primary">{saving ? "Creating…" : "Create Account"}</button>

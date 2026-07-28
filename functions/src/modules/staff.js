@@ -1,5 +1,6 @@
 const express = require("express");
 const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 const { db, writeAuditLog } = require("../utils/db");
 const { requireRole } = require("../middleware/auth");
 
@@ -39,7 +40,7 @@ router.post("/", onlyAdmin, async (req, res, next) => {
       email: email.trim(),
       phone: phone || "",
       isActive: true,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     await writeAuditLog({ actorUid: req.user.uid, action: "staff_create" });
@@ -60,7 +61,7 @@ router.put("/:uid", onlyAdmin, async (req, res, next) => {
     const snap = await ref.get();
     if (!snap.exists) return res.status(404).json({ error: "Staff member not found." });
 
-    const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+    const updates = { updatedAt: FieldValue.serverTimestamp() };
     if (name) updates.name = name.trim();
     if (phone) updates.phone = phone.trim();
     if (typeof isActive === "boolean") {
@@ -81,7 +82,7 @@ router.put("/:uid", onlyAdmin, async (req, res, next) => {
 router.delete("/:uid", onlyAdmin, async (req, res, next) => {
   try {
     const ref = db.collection("users").doc(req.params.uid);
-    await ref.update({ isActive: false, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+    await ref.update({ isActive: false, updatedAt: FieldValue.serverTimestamp() });
     await admin.auth().updateUser(req.params.uid, { disabled: true });
     await writeAuditLog({ actorUid: req.user.uid, action: "staff_deactivate" });
     res.json({ success: true });

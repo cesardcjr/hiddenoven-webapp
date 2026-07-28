@@ -1,6 +1,6 @@
 const express = require("express");
-const admin = require("firebase-admin");
-const { db, bucket, writeAuditLog, generateOrderNumber } = require("../utils/db");
+const { FieldValue } = require("firebase-admin/firestore");
+const { db, bucket, writeAuditLog, generateOrderNumber, getPublicUrl } = require("../utils/db");
 const { isValidPHMobile, validateOrderItems, isValidTransition } = require("../utils/validate");
 const { verifyToken, requireRole } = require("../middleware/auth");
 
@@ -69,7 +69,7 @@ router.post("/", async (req, res, next) => {
       status: "pending",
       subtotal,
       total: subtotal,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       verifiedBy: null,
     });
 
@@ -79,7 +79,7 @@ router.post("/", async (req, res, next) => {
     }
 
     // Increment slot usage
-    batch.update(slotRef, { slotsUsed: admin.firestore.FieldValue.increment(1) });
+    batch.update(slotRef, { slotsUsed: FieldValue.increment(1) });
 
     await batch.commit();
 
@@ -116,7 +116,7 @@ router.post("/:id/proof", async (req, res, next) => {
 
     await file.save(buffer, { metadata: { contentType: mimeType } });
     await file.makePublic();
-    const imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    const imageUrl = getPublicUrl(fileName);
 
     // Write payment_proofs document
     const proofRef = db.collection("payment_proofs").doc();
@@ -126,7 +126,7 @@ router.post("/:id/proof", async (req, res, next) => {
       refNumber: refNumber.trim(),
       verifiedStatus: "pending",
       verifiedBy: null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     res.status(201).json({ proofId: proofRef.id, imageUrl });
@@ -187,7 +187,7 @@ router.patch("/:id/status", verifyToken, requireRole("staff", "admin"), async (r
 
     const updateData = {
       status: toStatus,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     };
     if (toStatus === "payment_verified") updateData.verifiedBy = actorUid;
 

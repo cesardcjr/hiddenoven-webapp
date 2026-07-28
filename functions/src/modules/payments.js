@@ -1,5 +1,5 @@
 const express = require("express");
-const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 const { db, writeAuditLog } = require("../utils/db");
 const { requireRole } = require("../middleware/auth");
 
@@ -25,7 +25,7 @@ router.patch("/:id/verify", requireRole("staff", "admin"), async (req, res, next
     await proofRef.update({
       verifiedStatus: action,
       verifiedBy: actorUid,
-      verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      verifiedAt: FieldValue.serverTimestamp(),
     });
 
     // Sync order status if verified

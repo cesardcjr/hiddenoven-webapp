@@ -6,6 +6,7 @@ frontend/node_modules/
 # Build outputs
 frontend/dist/
 functions/lib/
+scripts/serviceAccountKey.json
 
 # Environment variables — NEVER commit these
 .env
@@ -14,6 +15,8 @@ functions/lib/
 frontend/.env.local
 
 # Firebase
+**/serviceAccountKey.json
+**/*serviceAccountKey*.json
 .firebase/
 firebase-debug.log
 firestore-debug.log
