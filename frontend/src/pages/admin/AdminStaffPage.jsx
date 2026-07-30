@@ -8,27 +8,57 @@ import { useToast } from "../../components/ui/Toast";
 
 const EMPTY_FORM = { name: "", email: "", phone: "", password: "" };
 
+function btnStyle(v) {
+  const b = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    border: "none",
+    transition: "all 0.18s",
+    fontFamily: "Inter,sans-serif",
+  };
+  if (v === "outline")
+    return {
+      ...b,
+      background: "transparent",
+      color: "#F0E8D8",
+      border: "1.5px solid rgba(201,168,76,0.3)",
+    };
+  if (v === "ghost")
+    return {
+      ...b,
+      background: "transparent",
+      color: "#9080A8",
+      border: "1.5px solid rgba(201,168,76,0.18)",
+    };
+  return b;
+}
+
 export default function AdminStaffPage() {
-  const [staff, setStaff]       = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm]         = useState(EMPTY_FORM);
-  const [saving, setSaving]     = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
   const { showToast, ToastContainer } = useToast();
 
   async function loadStaff() {
     setLoading(true);
     try {
-      const data = await api.getStaff();
-      setStaff(data);
+      setStaff(await api.getStaff());
     } catch (err) {
       showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
   }
-
-  useEffect(() => { loadStaff(); }, []);
+  useEffect(() => {
+    loadStaff();
+  }, []);
 
   async function handleCreate() {
     if (!form.name || !form.email || !form.password) {
@@ -50,15 +80,20 @@ export default function AdminStaffPage() {
   }
 
   async function handleToggle(member) {
-    const action = member.isActive ? "deactivate" : "reactivate";
-    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${member.name}?`)) return;
+    if (
+      !confirm(
+        `${member.isActive ? "Deactivate" : "Reactivate"} ${member.name}?`,
+      )
+    )
+      return;
     try {
-      if (member.isActive) {
-        await api.deactivateStaff(member.uid);
-      } else {
-        await api.updateStaff(member.uid, { isActive: true });
-      }
-      showToast(`Staff member ${action}d.`, "success");
+      member.isActive
+        ? await api.deactivateStaff(member.uid)
+        : await api.updateStaff(member.uid, { isActive: true });
+      showToast(
+        `Staff member ${member.isActive ? "deactivated" : "reactivated"}.`,
+        "success",
+      );
       loadStaff();
     } catch (err) {
       showToast(err.message, "error");
@@ -68,55 +103,217 @@ export default function AdminStaffPage() {
   return (
     <AdminLayout>
       <ToastContainer />
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-display font-bold">Staff</h1>
-        <button onClick={() => setModalOpen(true)} className="btn-primary">+ Add Staff</button>
+
+      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
+        <div>
+          <h2
+            className="font-display font-bold text-[1.2rem]"
+            style={{ color: "#E8C96D" }}
+          >
+            Staff Accounts
+          </h2>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+            Manage access and roles
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setForm(EMPTY_FORM);
+            setModalOpen(true);
+          }}
+          className="btn-primary"
+        >
+          + Add Staff
+        </button>
       </div>
 
       {loading ? (
         <Spinner className="py-20" />
       ) : (
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                {["Name", "Email", "Phone", "Status", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-neutral-600 font-medium">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {staff.map((s) => (
-                <tr key={s.uid} className="hover:bg-neutral-50">
-                  <td className="px-4 py-3 font-medium">{s.name}</td>
-                  <td className="px-4 py-3 text-neutral-500">{s.email}</td>
-                  <td className="px-4 py-3 text-neutral-500">{s.phone || "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`badge ${s.isActive ? "bg-green-100 text-green-700" : "bg-neutral-100 text-neutral-400"}`}>
-                      {s.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => handleToggle(s)} className={`text-xs font-medium hover:underline ${s.isActive ? "text-red-400" : "text-brand-500"}`}>
-                      {s.isActive ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {staff.length === 0 && <p className="text-center py-10 text-neutral-400">No staff accounts yet.</p>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {staff.map((s) => (
+            <div
+              key={s.uid}
+              className="flex flex-col overflow-hidden rounded-xl"
+              style={{
+                background: "#1E1235",
+                border: "1px solid rgba(201,168,76,0.18)",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+              }}
+            >
+              {/* Avatar area */}
+              <div
+                className="flex flex-col items-center gap-2 py-5"
+                style={{
+                  background: "#261748",
+                  borderBottom: "1px solid rgba(201,168,76,0.09)",
+                }}
+              >
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-bold"
+                  style={{ background: "#C9A84C", color: "#1A0F2E" }}
+                >
+                  {s.name?.charAt(0)?.toUpperCase()}
+                </div>
+                <span
+                  className="text-[0.68rem] font-bold px-2.5 py-0.5 rounded-full"
+                  style={
+                    s.isActive
+                      ? {
+                          background: "rgba(61,189,135,0.15)",
+                          color: "#3DBD87",
+                          border: "1px solid rgba(61,189,135,0.3)",
+                        }
+                      : {
+                          background: "rgba(255,255,255,0.05)",
+                          color: "#9080A8",
+                          border: "1px solid rgba(201,168,76,0.09)",
+                        }
+                  }
+                >
+                  {s.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+
+              {/* Body */}
+              <div className="flex flex-col flex-1 p-4">
+                <div
+                  className="font-bold text-[0.9rem] mb-1"
+                  style={{ color: "#F0E8D8" }}
+                >
+                  {s.name}
+                </div>
+                <div
+                  className="text-[0.74rem] mb-2 truncate"
+                  style={{ color: "#9080A8" }}
+                >
+                  {s.email}
+                </div>
+                <span
+                  className="inline-flex self-start text-[0.68rem] font-bold px-2.5 py-0.5 rounded-full mb-1"
+                  style={
+                    s.role === "admin"
+                      ? {
+                          background: "rgba(107,159,232,0.15)",
+                          color: "#6B9FE8",
+                          border: "1px solid rgba(107,159,232,0.3)",
+                        }
+                      : {
+                          background: "rgba(232,169,76,0.12)",
+                          color: "#E8A94C",
+                          border: "1px solid rgba(232,169,76,0.3)",
+                        }
+                  }
+                >
+                  {s.role === "admin" ? "Admin" : "Staff"}
+                </span>
+                {s.phone && (
+                  <div
+                    className="text-[0.72rem] mt-1"
+                    style={{ color: "#9080A8" }}
+                  >
+                    {s.phone}
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div
+                className="grid grid-cols-2 gap-2 px-4 pb-4"
+                style={{
+                  borderTop: "1px solid rgba(201,168,76,0.09)",
+                  paddingTop: "12px",
+                }}
+              >
+                <button
+                  style={btnStyle("outline")}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "#C9A84C";
+                    e.currentTarget.style.color = "#C9A84C";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(201,168,76,0.3)";
+                    e.currentTarget.style.color = "#F0E8D8";
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  style={btnStyle("ghost")}
+                  onClick={() => handleToggle(s)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "#9080A8";
+                    e.currentTarget.style.color = "#F0E8D8";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(201,168,76,0.18)";
+                    e.currentTarget.style.color = "#9080A8";
+                  }}
+                >
+                  {s.isActive ? "Deactivate" : "Activate"}
+                </button>
+              </div>
+            </div>
+          ))}
+          {staff.length === 0 && (
+            <div
+              className="col-span-full text-center py-20"
+              style={{ color: "#9080A8" }}
+            >
+              <div className="text-4xl mb-3 opacity-40">👥</div>
+              <p className="text-[0.86rem]">No staff accounts yet.</p>
+            </div>
+          )}
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Staff Member">
-        <TextInput label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Maria Santos" />
-        <TextInput label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="maria@hiddenoven.com" />
-        <TextInput label="Phone (optional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="09XXXXXXXXX" />
-        <PasswordInput label="Temporary Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min. 6 characters" />
-        <div className="flex gap-3 justify-end mt-2">
-          <button onClick={() => setModalOpen(false)} className="btn-secondary">Cancel</button>
-          <button onClick={handleCreate} disabled={saving} className="btn-primary">{saving ? "Creating…" : "Create Account"}</button>
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Add Staff Member"
+      >
+        <p className="text-[0.78rem] mb-4" style={{ color: "#9080A8" }}>
+          New staff will receive login credentials via email.
+        </p>
+        <TextInput
+          label="Full Name"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="Maria Santos"
+        />
+        <TextInput
+          label="Email"
+          type="email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          placeholder="staff@hiddenoven.com"
+        />
+        <TextInput
+          label="Phone (optional)"
+          value={form.phone}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          placeholder="09XXXXXXXXX"
+        />
+        <PasswordInput
+          label="Temporary Password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          placeholder="Min. 6 characters"
+        />
+        <div
+          className="flex gap-3 justify-end pt-2 mt-2"
+          style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
+        >
+          <button onClick={() => setModalOpen(false)} className="btn-secondary">
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={saving}
+            className="btn-primary"
+          >
+            {saving ? "Creating…" : "Create Account"}
+          </button>
         </div>
       </Modal>
     </AdminLayout>

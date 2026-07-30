@@ -3,11 +3,67 @@ import { api } from "../../lib/api";
 import { AdminLayout } from "../../components/layout/AdminLayout";
 import { Spinner } from "../../components/ui/Spinner";
 
-function StatCard({ label, value, accent }) {
+const KPI_CONFIG = [
+  {
+    key: "totalRevenue",
+    label: "💰 Total Revenue",
+    format: (v) => `₱${v.toFixed(2)}`,
+    accent: "#C9A84C",
+    topColor: "#C9A84C",
+  },
+  {
+    key: "total",
+    label: "📦 Total Orders",
+    format: (v) => v,
+    accent: "#6B9FE8",
+    topColor: "#6B9FE8",
+  },
+  {
+    key: "pending",
+    label: "⏳ Pending Action",
+    format: (v) => v,
+    accent: "#E8A94C",
+    topColor: "#E8A94C",
+  },
+  {
+    key: "completed",
+    label: "✅ Completed",
+    format: (v) => v,
+    accent: "#3DBD87",
+    topColor: "#3DBD87",
+  },
+  {
+    key: "cancelled",
+    label: "✕ Cancelled",
+    format: (v) => v,
+    accent: "#E05252",
+    topColor: "#E05252",
+  },
+];
+
+function KpiCard({ label, value, accent, topColor }) {
   return (
-    <div className="card">
-      <p className="text-sm text-neutral-500 mb-1">{label}</p>
-      <p className={`text-3xl font-bold ${accent || "text-neutral-900"}`}>{value}</p>
+    <div
+      className="rounded-xl p-4"
+      style={{
+        background: "#1E1235",
+        border: "1px solid rgba(201,168,76,0.18)",
+        borderTop: `3px solid ${topColor}`,
+        boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+      }}
+    >
+      <div
+        className="text-[0.68rem] font-bold uppercase tracking-[0.5px] mb-2"
+        style={{ color: "#9080A8" }}
+      >
+        {label}
+      </div>
+      <div
+        className="font-display text-[1.75rem] font-bold"
+        style={{ color: accent }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -15,36 +71,109 @@ function StatCard({ label, value, accent }) {
 export default function AdminDashboardPage() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    api.getDashboard()
+    api
+      .getDashboard()
       .then(setSummary)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <AdminLayout><Spinner className="py-20" /></AdminLayout>;
-  if (error)   return <AdminLayout><p className="text-red-500">{error}</p></AdminLayout>;
+  if (loading)
+    return (
+      <AdminLayout>
+        <Spinner className="py-20" />
+      </AdminLayout>
+    );
+  if (error)
+    return (
+      <AdminLayout>
+        <p className="text-sm py-10 text-center" style={{ color: "#E05252" }}>
+          {error}
+        </p>
+      </AdminLayout>
+    );
 
   return (
     <AdminLayout>
-      <h1 className="text-2xl font-display font-bold mb-6">Dashboard</h1>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Orders"    value={summary.total}      />
-        <StatCard label="Pending"         value={summary.pending}    accent="text-yellow-600" />
-        <StatCard label="Ready for Pickup" value={summary.ready}     accent="text-green-600" />
-        <StatCard label="Total Revenue"   value={`₱${summary.totalRevenue.toFixed(2)}`} accent="text-brand-600" />
+      {/* Page header */}
+      <div className="flex items-start justify-between mb-5 flex-wrap gap-2">
+        <div>
+          <h2
+            className="font-display font-bold text-[1.2rem]"
+            style={{ color: "#E8C96D" }}
+          >
+            Dashboard
+          </h2>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+            Live order and revenue overview
+          </p>
+        </div>
       </div>
 
-      <h2 className="text-lg font-semibold mb-4">Order Breakdown</h2>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard label="Accepted"         value={summary.accepted}         />
-        <StatCard label="Payment Verified" value={summary.payment_verified} />
-        <StatCard label="Completed"        value={summary.completed}        />
-        <StatCard label="Rejected"         value={summary.rejected}         accent="text-red-500" />
-        <StatCard label="Cancelled"        value={summary.cancelled}        accent="text-neutral-400" />
+      {/* KPI grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+        {KPI_CONFIG.map(({ key, label, format, accent, topColor }) => (
+          <KpiCard
+            key={key}
+            label={label}
+            value={format(summary[key] ?? 0)}
+            accent={accent}
+            topColor={topColor}
+          />
+        ))}
+      </div>
+
+      {/* Order breakdown */}
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: "#1E1235",
+          border: "1px solid rgba(201,168,76,0.18)",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+        }}
+      >
+        <div
+          className="font-display font-bold text-[1rem] mb-4"
+          style={{ color: "#E8C96D" }}
+        >
+          Order Breakdown
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {[
+            { label: "Accepted", value: summary.accepted, color: "#6B9FE8" },
+            {
+              label: "Payment Verified",
+              value: summary.payment_verified,
+              color: "#A78BFA",
+            },
+            {
+              label: "Ready for Pickup",
+              value: summary.ready,
+              color: "#3DBD87",
+            },
+            { label: "Rejected", value: summary.rejected, color: "#E05252" },
+            { label: "Cancelled", value: summary.cancelled, color: "#9080A8" },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              className="text-center p-3 rounded-lg"
+              style={{ background: "#261748" }}
+            >
+              <div
+                className="font-display text-2xl font-bold mb-1"
+                style={{ color }}
+              >
+                {value ?? 0}
+              </div>
+              <div className="text-[0.72rem]" style={{ color: "#9080A8" }}>
+                {label}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </AdminLayout>
   );

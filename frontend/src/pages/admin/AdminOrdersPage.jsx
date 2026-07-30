@@ -9,27 +9,68 @@ import { Spinner } from "../../components/ui/Spinner";
 import { useToast } from "../../components/ui/Toast";
 
 const ALL_TRANSITIONS = {
-  pending:          ["accepted", "rejected", "cancelled"],
-  accepted:         ["payment_verified", "rejected", "cancelled"],
-  payment_verified: ["ready", "cancelled"],
-  ready:            ["completed"],
+  pending: [
+    { label: "Accept", to: "accepted", style: "primary" },
+    { label: "Reject", to: "rejected", style: "danger" },
+    { label: "Cancel", to: "cancelled", style: "ghost" },
+  ],
+  accepted: [
+    { label: "Verify Payment", to: "payment_verified", style: "success" },
+    { label: "Reject", to: "rejected", style: "danger" },
+    { label: "Cancel", to: "cancelled", style: "ghost" },
+  ],
+  payment_verified: [
+    { label: "Mark Ready", to: "ready", style: "success" },
+    { label: "Cancel", to: "cancelled", style: "ghost" },
+  ],
+  ready: [{ label: "Complete Pickup", to: "completed", style: "success" }],
 };
 
+function btnStyle(variant) {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "7px 14px",
+    borderRadius: "6px",
+    fontSize: "0.78rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    border: "none",
+    transition: "all 0.18s",
+    whiteSpace: "nowrap",
+    fontFamily: "Inter,sans-serif",
+  };
+  if (variant === "primary")
+    return { ...base, background: "#C9A84C", color: "#1A0F2E" };
+  if (variant === "success")
+    return { ...base, background: "#3DBD87", color: "#fff" };
+  if (variant === "danger")
+    return { ...base, background: "#E05252", color: "#fff" };
+  if (variant === "ghost")
+    return {
+      ...base,
+      background: "transparent",
+      color: "#9080A8",
+      border: "1.5px solid rgba(201,168,76,0.18)",
+    };
+  return base;
+}
+
 export default function AdminOrdersPage() {
-  const [orders, setOrders]     = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [acting, setActing]     = useState(false);
-  const [search, setSearch]     = useState("");
+  const [acting, setActing] = useState(false);
+  const [search, setSearch] = useState("");
   const { showToast, ToastContainer } = useToast();
 
   useEffect(() => {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
+    return onSnapshot(q, (snap) => {
       setOrders(snap.docs.map((d) => ({ orderId: d.id, ...d.data() })));
       setLoading(false);
     });
-    return unsub;
   }, []);
 
   async function handleTransition(orderId, toStatus) {
@@ -45,49 +86,197 @@ export default function AdminOrdersPage() {
     }
   }
 
-  const filtered = orders.filter((o) =>
-    o.orderNo?.toLowerCase().includes(search.toLowerCase()) ||
-    o.customerName?.toLowerCase().includes(search.toLowerCase())
+  const filtered = orders.filter(
+    (o) =>
+      o.orderNo?.toLowerCase().includes(search.toLowerCase()) ||
+      o.customerName?.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const inputStyle = {
+    background: "rgba(255,255,255,0.05)",
+    border: "1.5px solid rgba(201,168,76,0.25)",
+    borderRadius: "8px",
+    color: "#F0E8D8",
+    fontSize: "0.84rem",
+    fontFamily: "Inter,sans-serif",
+    outline: "none",
+    padding: "8px 12px 8px 34px",
+    width: "220px",
+    transition: "border 0.2s",
+  };
 
   return (
     <AdminLayout>
       <ToastContainer />
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-display font-bold">Orders</h1>
-        <input
-          className="input w-64"
-          placeholder="Search by order no. or name…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <div>
+          <h2
+            className="font-display font-bold text-[1.2rem]"
+            style={{ color: "#E8C96D" }}
+          >
+            Orders
+          </h2>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+            {orders.length} total orders
+          </p>
+        </div>
+        <div className="relative">
+          <span
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[0.85rem]"
+            style={{ color: "#5A4870" }}
+          >
+            🔍
+          </span>
+          <input
+            style={inputStyle}
+            placeholder="Search order no. or name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+            onBlur={(e) =>
+              (e.target.style.borderColor = "rgba(201,168,76,0.25)")
+            }
+          />
+        </div>
       </div>
 
       {loading ? (
         <Spinner className="py-20" />
       ) : (
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
+        <div
+          className="overflow-x-auto rounded-xl"
+          style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}
+        >
+          <table
+            className="w-full border-collapse"
+            style={{ fontSize: "0.82rem" }}
+          >
+            <thead>
               <tr>
-                {["Order No.", "Customer", "Contact", "Total", "Status", "Date", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-neutral-600 font-medium">{h}</th>
+                {[
+                  "Order No.",
+                  "Customer",
+                  "Contact",
+                  "Total",
+                  "Status",
+                  "Date",
+                  "",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left px-3 py-2.5 whitespace-nowrap"
+                    style={{
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      color: "#9080A8",
+                      borderBottom: "2px solid rgba(201,168,76,0.18)",
+                      background: "#1E1235",
+                    }}
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
+            <tbody>
               {filtered.map((o) => (
-                <tr key={o.orderId} className="hover:bg-neutral-50">
-                  <td className="px-4 py-3 font-semibold">{o.orderNo}</td>
-                  <td className="px-4 py-3">{o.customerName}</td>
-                  <td className="px-4 py-3 text-neutral-500">{o.contactNumber}</td>
-                  <td className="px-4 py-3 text-brand-600 font-semibold">₱{o.total?.toFixed(2)}</td>
-                  <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
-                  <td className="px-4 py-3 text-neutral-400 text-xs">
-                    {o.createdAt?.toDate?.()?.toLocaleDateString("en-PH") ?? "—"}
+                <tr
+                  key={o.orderId}
+                  style={{
+                    borderBottom: "1px solid rgba(201,168,76,0.09)",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) =>
+                    Array.from(e.currentTarget.cells).forEach(
+                      (td) => (td.style.background = "rgba(201,168,76,0.05)"),
+                    )
+                  }
+                  onMouseLeave={(e) =>
+                    Array.from(e.currentTarget.cells).forEach(
+                      (td) => (td.style.background = "#1E1235"),
+                    )
+                  }
+                >
+                  <td
+                    className="px-3 py-3 font-bold"
+                    style={{
+                      background: "#1E1235",
+                      color: "#C9A84C",
+                      verticalAlign: "middle",
+                    }}
+                  >
+                    {o.orderNo}
                   </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => setSelected(o)} className="text-brand-500 hover:underline text-xs font-medium">
+                  <td
+                    className="px-3 py-3 font-semibold"
+                    style={{
+                      background: "#1E1235",
+                      color: "#F0E8D8",
+                      verticalAlign: "middle",
+                    }}
+                  >
+                    {o.customerName}
+                  </td>
+                  <td
+                    className="px-3 py-3"
+                    style={{
+                      background: "#1E1235",
+                      color: "#9080A8",
+                      verticalAlign: "middle",
+                    }}
+                  >
+                    {o.contactNumber}
+                  </td>
+                  <td
+                    className="px-3 py-3 font-bold"
+                    style={{
+                      background: "#1E1235",
+                      color: "#E8C96D",
+                      verticalAlign: "middle",
+                    }}
+                  >
+                    ₱{o.total?.toFixed(2)}
+                  </td>
+                  <td
+                    className="px-3 py-3"
+                    style={{ background: "#1E1235", verticalAlign: "middle" }}
+                  >
+                    <StatusBadge status={o.status} />
+                  </td>
+                  <td
+                    className="px-3 py-3 text-[0.73rem] whitespace-nowrap"
+                    style={{
+                      background: "#1E1235",
+                      color: "#9080A8",
+                      verticalAlign: "middle",
+                    }}
+                  >
+                    {o.createdAt?.toDate?.()?.toLocaleDateString("en-PH") ??
+                      "—"}
+                  </td>
+                  <td
+                    className="px-3 py-3"
+                    style={{ background: "#1E1235", verticalAlign: "middle" }}
+                  >
+                    <button
+                      onClick={() => setSelected(o)}
+                      className="text-[0.75rem] font-semibold transition-colors"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#C9A84C",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = "#E8C96D")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.color = "#C9A84C")
+                      }
+                    >
                       Manage
                     </button>
                   </td>
@@ -96,30 +285,90 @@ export default function AdminOrdersPage() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <p className="text-center py-10 text-neutral-400">No orders found.</p>
+            <div
+              className="text-center py-12"
+              style={{ color: "#9080A8", fontSize: "0.86rem" }}
+            >
+              No orders found.
+            </div>
           )}
         </div>
       )}
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={`Order ${selected?.orderNo}`}>
+      <Modal
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title={`Order ${selected?.orderNo}`}
+      >
         {selected && (
-          <div className="space-y-4 text-sm">
-            <div className="grid grid-cols-2 gap-3">
-              <div><p className="text-neutral-500">Customer</p><p className="font-semibold">{selected.customerName}</p></div>
-              <div><p className="text-neutral-500">Contact</p><p className="font-semibold">{selected.contactNumber}</p></div>
-              <div><p className="text-neutral-500">Status</p><StatusBadge status={selected.status} /></div>
-              <div><p className="text-neutral-500">Total</p><p className="font-bold text-brand-600">₱{selected.total?.toFixed(2)}</p></div>
+          <div>
+            <div className="grid grid-cols-2 gap-3 mb-5 text-[0.82rem]">
+              {[
+                ["Customer", selected.customerName],
+                ["Contact", selected.contactNumber],
+                ["Total", `₱${selected.total?.toFixed(2)}`],
+                ["Pickup Slot", selected.pickupSlotId || "—"],
+              ].map(([l, v]) => (
+                <div key={l}>
+                  <p
+                    className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-1"
+                    style={{ color: "#9080A8" }}
+                  >
+                    {l}
+                  </p>
+                  <p
+                    className="font-semibold"
+                    style={{ color: l === "Total" ? "#C9A84C" : "#F0E8D8" }}
+                  >
+                    {v}
+                  </p>
+                </div>
+              ))}
+              <div>
+                <p
+                  className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-1"
+                  style={{ color: "#9080A8" }}
+                >
+                  Status
+                </p>
+                <StatusBadge status={selected.status} />
+              </div>
             </div>
             {ALL_TRANSITIONS[selected.status] && (
-              <div className="border-t pt-4">
-                <p className="font-medium mb-3">Change Status</p>
+              <div
+                className="pt-4"
+                style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
+              >
+                <p
+                  className="text-[0.65rem] font-bold uppercase tracking-[0.6px] mb-3"
+                  style={{ color: "#9080A8" }}
+                >
+                  Change Status
+                </p>
                 <div className="flex gap-2 flex-wrap">
-                  {ALL_TRANSITIONS[selected.status].map((s) => (
-                    <button key={s} disabled={acting} onClick={() => handleTransition(selected.orderId, s)}
-                      className={s === "rejected" || s === "cancelled" ? "btn-danger text-sm" : "btn-primary text-sm"}>
-                      {s.replace("_", " ")}
-                    </button>
-                  ))}
+                  {ALL_TRANSITIONS[selected.status].map(
+                    ({ label, to, style }) => (
+                      <button
+                        key={to}
+                        disabled={acting}
+                        onClick={() => handleTransition(selected.orderId, to)}
+                        style={btnStyle(style)}
+                        onMouseEnter={(e) => {
+                          if (style === "primary")
+                            e.currentTarget.style.background = "#E8C96D";
+                          if (style === "success")
+                            e.currentTarget.style.background = "#2DA870";
+                          if (style === "danger")
+                            e.currentTarget.style.background = "#C53030";
+                        }}
+                        onMouseLeave={(e) =>
+                          Object.assign(e.currentTarget.style, btnStyle(style))
+                        }
+                      >
+                        {acting ? "…" : label}
+                      </button>
+                    ),
+                  )}
                 </div>
               </div>
             )}
