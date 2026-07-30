@@ -1,16 +1,17 @@
-export function Spinner({ size = "md", className = "" }) {
-  const sizes = { sm: "h-4 w-4", md: "h-8 w-8", lg: "h-12 w-12" };
+export function Spinner({ className = "" }) {
   return (
-    <div className={`flex items-center justify-center ${className}`}>
-      <div className={`${sizes[size]} border-4 border-brand-200 border-t-brand-500 rounded-full animate-spin`} />
+    <div className={`flex justify-center items-center ${className}`}>
+      <div
+        className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+        style={{
+          borderColor: "rgba(201,168,76,0.25)",
+          borderTopColor: "#C9A84C",
+        }}
+      />
     </div>
   );
 }
 
-export function PageLoader() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-      <Spinner size="lg" />
-    </div>
-  );
+export function PageLoader({ className = "min-h-screen" }) {
+  return <Spinner className={className} />;
 }

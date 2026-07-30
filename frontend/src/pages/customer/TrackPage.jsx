@@ -8,15 +8,25 @@ import { StatusBadge } from "../../components/ui/StatusBadge";
 import { TextInput } from "../../components/ui/FormField";
 import { Spinner } from "../../components/ui/Spinner";
 
-const STATUS_STEPS = ["pending", "accepted", "payment_verified", "ready", "completed"];
+const STATUS_STEPS = [
+  { key: "pending", label: "Placed" },
+  { key: "accepted", label: "Confirmed" },
+  { key: "payment_verified", label: "Paid" },
+  { key: "ready", label: "Ready" },
+  { key: "completed", label: "Done" },
+];
 
 export default function TrackPage() {
   const [params] = useSearchParams();
-  const [form, setForm]         = useState({ orderNo: params.get("orderNo") || "", contactNumber: "", customerName: "" });
-  const [order, setOrder]       = useState(null);
-  const [orderId, setOrderId]   = useState(null);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
+  const [form, setForm] = useState({
+    orderNo: params.get("orderNo") || "",
+    contactNumber: "",
+    customerName: "",
+  });
+  const [order, setOrder] = useState(null);
+  const [orderId, setOrderId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Live listener once we have the orderId
   useEffect(() => {
@@ -30,7 +40,7 @@ export default function TrackPage() {
   // Auto-search if orderNo in URL
   useEffect(() => {
     if (params.get("orderNo")) handleSearch();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSearch() {
     setError("");
@@ -38,7 +48,10 @@ export default function TrackPage() {
     try {
       const q = form.orderNo
         ? { orderNo: form.orderNo }
-        : { contactNumber: form.contactNumber, customerName: form.customerName };
+        : {
+            contactNumber: form.contactNumber,
+            customerName: form.customerName,
+          };
       const result = await api.trackOrder(q);
       const found = Array.isArray(result) ? result[0] : result;
       setOrder(found);
@@ -51,27 +64,65 @@ export default function TrackPage() {
     }
   }
 
-  const stepIndex = order ? STATUS_STEPS.indexOf(order.status) : -1;
+  const stepIndex = order
+    ? STATUS_STEPS.findIndex((s) => s.key === order.status)
+    : -1;
+
+  const surfaceStyle = {
+    background: "#1E1235",
+    border: "1px solid rgba(201,168,76,0.18)",
+    borderRadius: "12px",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+  };
 
   return (
     <CustomerLayout>
       <div className="max-w-xl mx-auto">
-        <h1 className="text-2xl font-display font-bold mb-6">Track Your Order</h1>
+        <h1
+          className="font-display text-2xl font-bold mb-6"
+          style={{ color: "#E8C96D" }}
+        >
+          Track Your Order
+        </h1>
 
-        {/* Search form */}
-        <div className="card mb-6">
-          <h2 className="font-semibold mb-4">Find your order</h2>
+        {/* ── Search form ── */}
+        <div style={surfaceStyle} className="p-5 mb-5">
+          <h2
+            className="font-semibold text-[0.85rem] mb-4"
+            style={{ color: "#F0E8D8" }}
+          >
+            Find your order
+          </h2>
           <TextInput
             label="Order Number"
             value={form.orderNo}
             onChange={(e) => setForm({ ...form, orderNo: e.target.value })}
             placeholder="HO-20240101-0001"
           />
-          <p className="text-center text-sm text-neutral-400 my-3">— or search by contact —</p>
+
+          <div
+            className="flex items-center gap-3 my-3"
+            style={{ color: "rgba(240,232,220,0.25)" }}
+          >
+            <div
+              className="flex-1 h-px"
+              style={{ background: "rgba(201,168,76,0.12)" }}
+            />
+            <span className="text-[0.72rem] font-medium">
+              or search by contact
+            </span>
+            <div
+              className="flex-1 h-px"
+              style={{ background: "rgba(201,168,76,0.12)" }}
+            />
+          </div>
+
           <TextInput
             label="Mobile Number"
             value={form.contactNumber}
-            onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, contactNumber: e.target.value })
+            }
             placeholder="09XXXXXXXXX"
           />
           <TextInput
@@ -80,47 +131,99 @@ export default function TrackPage() {
             onChange={(e) => setForm({ ...form, customerName: e.target.value })}
             placeholder="Juan Dela Cruz"
           />
-          {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-          <button onClick={handleSearch} disabled={loading} className="btn-primary w-full">
+
+          {error && (
+            <p className="text-[0.78rem] mb-3" style={{ color: "#E05252" }}>
+              {error}
+            </p>
+          )}
+
+          <button
+            onClick={handleSearch}
+            disabled={loading}
+            className="btn-primary w-full"
+          >
             {loading ? "Searching…" : "Track Order"}
           </button>
         </div>
 
-        {/* Result */}
+        {/* ── Result ── */}
         {loading && <Spinner className="py-10" />}
+
         {order && (
-          <div className="card">
-            <div className="flex items-start justify-between mb-4">
+          <div style={surfaceStyle} className="p-5">
+            {/* Order header */}
+            <div className="flex items-start justify-between mb-5">
               <div>
-                <p className="font-semibold text-lg">{order.orderNo}</p>
-                <p className="text-sm text-neutral-500">{order.customerName} · {order.contactNumber}</p>
+                <p className="font-bold text-base" style={{ color: "#C9A84C" }}>
+                  {order.orderNo}
+                </p>
+                <p
+                  className="text-[0.75rem] mt-0.5"
+                  style={{ color: "rgba(240,232,220,0.45)" }}
+                >
+                  {order.customerName} · {order.contactNumber}
+                </p>
               </div>
               <StatusBadge status={order.status} />
             </div>
 
-            {/* Progress bar */}
+            {/* Progress bar — hidden for rejected / cancelled */}
             {!["rejected", "cancelled"].includes(order.status) && (
-              <div className="mb-6">
-                <div className="flex items-center gap-1">
+              <div className="mb-5">
+                {/* Bar track */}
+                <div className="flex items-center gap-1 mb-1.5">
                   {STATUS_STEPS.map((step, i) => (
-                    <div key={step} className="flex-1 flex items-center">
-                      <div className={`h-2 flex-1 rounded-full ${i <= stepIndex ? "bg-brand-500" : "bg-neutral-200"}`} />
+                    <div key={step.key} className="flex-1">
+                      <div
+                        className="h-1.5 rounded-full transition-all duration-500"
+                        style={{
+                          background:
+                            i <= stepIndex
+                              ? "#C9A84C"
+                              : "rgba(201,168,76,0.15)",
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between text-xs text-neutral-400 mt-1">
-                  <span>Placed</span>
-                  <span>Accepted</span>
-                  <span>Paid</span>
-                  <span>Ready</span>
-                  <span>Done</span>
+                {/* Step labels */}
+                <div className="flex justify-between">
+                  {STATUS_STEPS.map((step, i) => (
+                    <span
+                      key={step.key}
+                      className="text-[0.62rem] font-medium"
+                      style={{
+                        color:
+                          i <= stepIndex ? "#C9A84C" : "rgba(240,232,220,0.25)",
+                      }}
+                    >
+                      {step.label}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
 
-            <div className="text-sm space-y-1 text-neutral-600">
-              <p>Total: <span className="font-semibold text-neutral-900">₱{order.total?.toFixed(2)}</span></p>
-              {order.pickupSlotId && <p>Pickup Slot ID: {order.pickupSlotId}</p>}
+            {/* Order summary */}
+            <div
+              className="text-[0.82rem] space-y-1.5 pt-4"
+              style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
+            >
+              <div className="flex justify-between">
+                <span style={{ color: "rgba(240,232,220,0.45)" }}>Total</span>
+                <span className="font-bold" style={{ color: "#C9A84C" }}>
+                  ₱{order.total?.toFixed(2)}
+                </span>
+              </div>
+              {order.pickupSlotId && (
+                <div className="flex justify-between">
+                  <span style={{ color: "rgba(240,232,220,0.45)" }}>
+                    Pickup Slot
+                  </span>
+                  <span style={{ color: "#F0E8D8" }}>{order.pickupSlotId}</span>
+                </div>
+              )}
             </div>
           </div>
         )}

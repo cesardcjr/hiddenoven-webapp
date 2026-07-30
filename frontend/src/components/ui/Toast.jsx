@@ -1,5 +1,26 @@
 import { useEffect, useState } from "react";
 
+const TOAST_STYLES = {
+  success: {
+    background: "rgba(61,189,135,0.12)",
+    border: "1px solid rgba(61,189,135,0.3)",
+    borderLeft: "4px solid #3DBD87",
+    color: "#3DBD87",
+  },
+  error: {
+    background: "rgba(224,82,82,0.12)",
+    border: "1px solid rgba(224,82,82,0.3)",
+    borderLeft: "4px solid #E05252",
+    color: "#E05252",
+  },
+  info: {
+    background: "rgba(201,168,76,0.10)",
+    border: "1px solid rgba(201,168,76,0.3)",
+    borderLeft: "4px solid #C9A84C",
+    color: "#E8C96D",
+  },
+};
+
 export function Toast({ message, type = "info", onClose }) {
   const [visible, setVisible] = useState(true);
 
@@ -11,19 +32,33 @@ export function Toast({ message, type = "info", onClose }) {
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const colors = {
-    success: "bg-green-50 border-green-400 text-green-800",
-    error:   "bg-red-50 border-red-400 text-red-800",
-    info:    "bg-brand-50 border-brand-400 text-brand-800",
-  };
+  const style = TOAST_STYLES[type] || TOAST_STYLES.info;
 
   return (
     <div
-      className={`fixed bottom-6 right-6 z-50 max-w-sm border-l-4 rounded-lg px-4 py-3 shadow-lg transition-opacity duration-300 ${colors[type]} ${visible ? "opacity-100" : "opacity-0"}`}
+      className="max-w-sm rounded-xl px-4 py-3 shadow-card-md transition-opacity duration-300"
+      style={{
+        ...style,
+        opacity: visible ? 1 : 0,
+      }}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium">{message}</p>
-        <button onClick={() => { setVisible(false); setTimeout(onClose, 300); }} className="text-inherit opacity-60 hover:opacity-100 text-lg leading-none">×</button>
+        <p
+          className="text-[0.82rem] font-medium"
+          style={{ color: style.color }}
+        >
+          {message}
+        </p>
+        <button
+          onClick={() => {
+            setVisible(false);
+            setTimeout(onClose, 300);
+          }}
+          className="text-lg leading-none opacity-50 hover:opacity-100 transition-opacity"
+          style={{ color: style.color }}
+        >
+          ×
+        </button>
       </div>
     </div>
   );
@@ -45,7 +80,12 @@ export function useToast() {
     return (
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
         {toasts.map((t) => (
-          <Toast key={t.id} message={t.message} type={t.type} onClose={() => removeToast(t.id)} />
+          <Toast
+            key={t.id}
+            message={t.message}
+            type={t.type}
+            onClose={() => removeToast(t.id)}
+          />
         ))}
       </div>
     );

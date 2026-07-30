@@ -9,16 +9,16 @@ import { useToast } from "../../components/ui/Toast";
 const CATEGORIES = ["All", "Bread", "Pastry", "Cake"];
 
 export default function CatalogPage() {
-  const [products, setProducts]   = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [category, setCategory]   = useState("All");
-  const { addItem }               = useCart();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState("All");
+  const { addItem } = useCart();
   const { showToast, ToastContainer } = useToast();
 
   useEffect(() => {
     async function fetchProducts() {
       const snap = await getDocs(
-        query(collection(db, "products"), where("isAvailable", "==", true))
+        query(collection(db, "products"), where("isAvailable", "==", true)),
       );
       setProducts(snap.docs.map((d) => ({ productId: d.id, ...d.data() })));
       setLoading(false);
@@ -26,9 +26,12 @@ export default function CatalogPage() {
     fetchProducts();
   }, []);
 
-  const filtered = category === "All"
-    ? products
-    : products.filter((p) => p.category.toLowerCase() === category.toLowerCase());
+  const filtered =
+    category === "All"
+      ? products
+      : products.filter(
+          (p) => p.category.toLowerCase() === category.toLowerCase(),
+        );
 
   function handleAdd(product) {
     addItem(product);
@@ -41,23 +44,55 @@ export default function CatalogPage() {
 
       {/* Hero */}
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-neutral-900 mb-2">
+        <p
+          className="text-[0.7rem] font-bold uppercase tracking-[1.5px] mb-2"
+          style={{ color: "#C9A84C" }}
+        >
+          Fresh Today
+        </p>
+        <h1
+          className="font-display text-3xl font-bold mb-2"
+          style={{ color: "#E8C96D" }}
+        >
           Fresh from the oven.
         </h1>
-        <p className="text-neutral-500">Order ahead for same-day or next-day pickup.</p>
+        <p className="text-sm" style={{ color: "rgba(240,232,220,0.55)" }}>
+          Order ahead for same-day or next-day pickup.
+        </p>
       </div>
 
-      {/* Category filter */}
+      {/* Category filter pills */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
             onClick={() => setCategory(cat)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+            className="px-4 py-1.5 rounded-full text-[0.78rem] font-semibold border transition-all duration-150"
+            style={
               category === cat
-                ? "bg-brand-500 text-white border-brand-500"
-                : "bg-white text-neutral-600 border-neutral-300 hover:border-brand-400"
-            }`}
+                ? {
+                    background: "#C9A84C",
+                    color: "#1A0F2E",
+                    borderColor: "#C9A84C",
+                  }
+                : {
+                    background: "transparent",
+                    color: "rgba(240,232,220,0.55)",
+                    borderColor: "rgba(201,168,76,0.25)",
+                  }
+            }
+            onMouseEnter={(e) => {
+              if (category !== cat) {
+                e.currentTarget.style.borderColor = "#C9A84C";
+                e.currentTarget.style.color = "#E8C96D";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (category !== cat) {
+                e.currentTarget.style.borderColor = "rgba(201,168,76,0.25)";
+                e.currentTarget.style.color = "rgba(240,232,220,0.55)";
+              }
+            }}
           >
             {cat}
           </button>
@@ -68,30 +103,88 @@ export default function CatalogPage() {
       {loading ? (
         <Spinner className="py-20" />
       ) : filtered.length === 0 ? (
-        <p className="text-neutral-500 text-center py-20">No items available in this category.</p>
+        <div
+          className="text-center py-20"
+          style={{ color: "rgba(240,232,220,0.35)" }}
+        >
+          <div className="text-4xl mb-3 opacity-50">🍞</div>
+          <p className="text-sm">No items available in this category.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((product) => (
-            <div key={product.productId} className="card flex flex-col">
-              {product.imageUrl && (
+            <div
+              key={product.productId}
+              className="flex flex-col overflow-hidden rounded-card transition-all duration-200"
+              style={{
+                background: "#1E1235",
+                border: "1px solid rgba(201,168,76,0.18)",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.45)";
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.35)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              {/* Image */}
+              {product.imageUrl ? (
                 <img
                   src={product.imageUrl}
                   alt={product.name}
-                  className="w-full h-44 object-cover rounded-lg mb-4 bg-neutral-100"
+                  className="w-full h-44 object-cover"
+                  style={{ background: "#261748" }}
                 />
+              ) : (
+                <div
+                  className="w-full h-44 flex items-center justify-center text-4xl"
+                  style={{ background: "#261748" }}
+                >
+                  🍞
+                </div>
               )}
-              <div className="flex-1">
-                <p className="text-xs text-brand-500 font-semibold uppercase tracking-wide mb-1">
+
+              {/* Body */}
+              <div className="flex flex-col flex-1 p-4">
+                <p
+                  className="text-[0.68rem] font-bold uppercase tracking-[0.5px] mb-1"
+                  style={{ color: "#C9A84C" }}
+                >
                   {product.category}
                 </p>
-                <h3 className="font-semibold text-neutral-900 mb-1">{product.name}</h3>
-                <p className="text-brand-600 font-bold text-lg mb-4">
+                <h3
+                  className="font-semibold text-[0.9rem] mb-1"
+                  style={{ color: "#F0E8D8" }}
+                >
+                  {product.name}
+                </h3>
+                <p
+                  className="font-bold text-[1rem] mb-4"
+                  style={{ color: "#C9A84C" }}
+                >
                   ₱{product.price.toFixed(2)}
                 </p>
+
+                <button
+                  onClick={() => handleAdd(product)}
+                  className="mt-auto w-full text-[0.8rem] font-semibold py-2 rounded-lg transition-all duration-150"
+                  style={{ background: "#C9A84C", color: "#1A0F2E" }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#E8C96D";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 16px rgba(201,168,76,0.30)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#C9A84C";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
+                  Add to Cart
+                </button>
               </div>
-              <button onClick={() => handleAdd(product)} className="btn-primary w-full text-sm">
-                Add to Cart
-              </button>
             </div>
           ))}
         </div>
