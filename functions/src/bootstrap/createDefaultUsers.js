@@ -5,7 +5,7 @@ if (
   process.env.NODE_ENV !== "production" &&
   !process.env.FIREBASE_AUTH_EMULATOR_HOST
 ) {
-  process.env.FIREBASE_AUTH_EMULATOR_HOST = "localhost:9091";
+  process.env.FIREBASE_AUTH_EMULATOR_HOST = "localhost:9099";
 }
 
 const DEFAULT_USERS = [

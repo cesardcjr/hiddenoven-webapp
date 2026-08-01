@@ -19,34 +19,69 @@ async function request(method, path, body) {
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed.");
+
+  let data = null;
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    data = await res.json();
+  } else {
+    data = await res.text();
+  }
+
+  if (!res.ok) {
+    const message =
+      typeof data === "string" && data.trim()
+        ? data
+        : data?.error || data?.message || "Request failed.";
+    throw new Error(message);
+  }
+
   return data;
 }
 
 export const api = {
   // Orders
-  placeOrder:      (payload)          => request("POST", "/api/orders", payload),
-  uploadProof:     (orderId, payload) => request("POST", `/api/orders/${orderId}/proof`, payload),
-  trackOrder:      (params)           => request("GET",  `/api/orders/track?${new URLSearchParams(params)}`),
-  updateStatus:    (orderId, status)  => request("PATCH", `/api/orders/${orderId}/status`, { status }),
+  placeOrder: (payload) => request("POST", "/api/orders", payload),
+  uploadProof: (orderId, payload) =>
+    request("POST", `/api/orders/${orderId}/proof`, payload),
+  trackOrder: (params) =>
+    request("GET", `/api/orders/track?${new URLSearchParams(params)}`),
+  updateStatus: (orderId, status) =>
+    request("PATCH", `/api/orders/${orderId}/status`, { status }),
 
   // Dashboard & Reports
-  getDashboard:    ()                 => request("GET", "/api/dashboard/summary"),
-  getReports:      (from, to)         => request("GET", `/api/reports?from=${from}&to=${to}`),
+  getDashboard: () => request("GET", "/api/dashboard/summary"),
+  getReports: (from, to) =>
+    request("GET", `/api/reports?from=${from}&to=${to}`),
 
   // Products
-  getProducts:     ()                 => request("GET", "/api/products"),
-  createProduct:   (payload)          => request("POST", "/api/products", payload),
-  updateProduct:   (id, payload)      => request("PUT", `/api/products/${id}`, payload),
-  deleteProduct:   (id)               => request("DELETE", `/api/products/${id}`),
+  getProducts: () => request("GET", "/api/products"),
+  createProduct: (payload) => request("POST", "/api/products", payload),
+  updateProduct: (id, payload) =>
+    request("PUT", `/api/products/${id}`, payload),
+  deleteProduct: (id) => request("DELETE", `/api/products/${id}`),
 
   // Staff
-  getStaff:        ()                 => request("GET", "/api/staff"),
-  createStaff:     (payload)          => request("POST", "/api/staff", payload),
-  updateStaff:     (uid, payload)     => request("PUT", `/api/staff/${uid}`, payload),
-  deactivateStaff: (uid)              => request("DELETE", `/api/staff/${uid}`),
+  getStaff: () => request("GET", "/api/staff"),
+  createStaff: (payload) => request("POST", "/api/staff", payload),
+  updateStaff: (uid, payload) => request("PUT", `/api/staff/${uid}`, payload),
+  deactivateStaff: (uid) => request("DELETE", `/api/staff/${uid}`),
 
   // Payments
-  verifyPayment:   (id, action)       => request("PATCH", `/api/payments/${id}/verify`, { action }),
+  verifyPayment: (id, action) =>
+    request("PATCH", `/api/payments/${id}/verify`, { action }),
+
+  // Pickup Times (admin)
+  getPickupConfigs: () => request("GET", "/api/pickup-times/configs"),
+  createPickupConfig: (payload) =>
+    request("POST", "/api/pickup-times/configs", payload),
+  updatePickupConfig: (id, payload) =>
+    request("PUT", `/api/pickup-times/configs/${id}`, payload),
+  deletePickupConfig: (id) =>
+    request("DELETE", `/api/pickup-times/configs/${id}`),
+
+  // Pickup Times (public — no auth needed but goes through api helper for consistency)
+  getAvailableDates: () => request("GET", "/api/pickup-times/available-dates"),
+  getAvailableSlots: (date) =>
+    request("GET", `/api/pickup-times/available?date=${date}`),
 };

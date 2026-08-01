@@ -11,11 +11,11 @@
     "runtime": "nodejs20"
   },
   "emulators": {
-    "auth": { "port": 9091 },
-    "functions": { "port": 5001 },
-    "firestore": { "port": 8081 },
-    "storage": { "port": 9191 },
-    "ui": { "enabled": true, "port": 4101 }
+    "auth": { "host": "127.0.0.1", "port": 9099 },
+    "functions": { "host": "127.0.0.1", "port": 5001 },
+    "firestore": { "host": "127.0.0.1", "port": 8080 },
+    "storage": { "host": "127.0.0.1", "port": 9199 },
+    "ui": { "enabled": true, "host": "127.0.0.1", "port": 4000 }
   },
   "hosting": {
     "public": "frontend/dist",

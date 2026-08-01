@@ -17,11 +17,28 @@
       ]
     },
     {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pickupDate", "order": "ASCENDING" },
+        { "fieldPath": "pickupConfigId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "audit_log",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "orderId", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pickup_time_configs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "startMinutes", "order": "ASCENDING" }
       ]
     }
   ],

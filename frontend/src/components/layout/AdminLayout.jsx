@@ -16,6 +16,7 @@ const NAV_SECTIONS = [
       { to: "/admin/products", label: "Products", icon: "🥐" },
       { to: "/admin/staff", label: "Staff", icon: "👥" },
       { to: "/admin/payments", label: "Payments", icon: "💳" },
+      { to: "/admin/pickup-times", label: "Pickup Times", icon: "🕐" },
     ],
   },
   {
@@ -35,6 +36,7 @@ const PAGE_TITLES = {
   "/admin/payments": "Payments",
   "/admin/reports": "Sales Reports",
   "/admin/audit": "Audit Logs",
+  "/admin/pickup-times": "Pickup Time Slots",
 };
 
 export function AdminLayout({ children }) {

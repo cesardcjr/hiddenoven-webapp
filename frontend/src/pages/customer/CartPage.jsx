@@ -1,47 +1,63 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "../../lib/firebase";
 import { api } from "../../lib/api";
 import { useCart } from "../../context/CartContext";
 import { CustomerLayout } from "../../components/layout/CustomerLayout";
-import { TextInput, SelectInput } from "../../components/ui/FormField";
+import { TextInput } from "../../components/ui/FormField";
 import { useToast } from "../../components/ui/Toast";
+import { Spinner } from "../../components/ui/Spinner";
 
 export default function CartPage() {
   const { items, total, updateQty, removeItem, clearCart } = useCart();
   const navigate = useNavigate();
   const { showToast, ToastContainer } = useToast();
 
+  const [dateRange, setDateRange] = useState({
+    earliestDate: "",
+    latestDate: "",
+  });
   const [slots, setSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+
   const [form, setForm] = useState({
     customerName: "",
     contactNumber: "",
-    pickupSlotId: "",
+    pickupDate: "",
+    pickupConfigId: "",
   });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
+  // Load available date range on mount
   useEffect(() => {
-    async function loadSlots() {
-      const today = new Date().toISOString().slice(0, 10);
-      const snap = await getDocs(
-        query(collection(db, "pickup_slots"), where("date", ">=", today)),
-      );
-      const available = snap.docs
-        .map((d) => ({ slotId: d.id, ...d.data() }))
-        .filter((s) => s.slotsUsed < s.capacity);
-      setSlots(available);
-    }
-    loadSlots();
+    api
+      .getAvailableDates()
+      .then(({ earliestDate, latestDate }) => {
+        setDateRange({ earliestDate, latestDate });
+        setForm((f) => ({ ...f, pickupDate: earliestDate }));
+      })
+      .catch(() => {});
   }, []);
+
+  // Reload slots whenever selected date changes
+  useEffect(() => {
+    if (!form.pickupDate) return;
+    setSlotsLoading(true);
+    setForm((f) => ({ ...f, pickupConfigId: "" }));
+    api
+      .getAvailableSlots(form.pickupDate)
+      .then(setSlots)
+      .catch(() => setSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [form.pickupDate]);
 
   function validate() {
     const e = {};
     if (!form.customerName.trim()) e.customerName = "Name is required.";
     if (!/^(09|\+639)\d{9}$/.test(form.contactNumber))
       e.contactNumber = "Enter a valid PH mobile (09XXXXXXXXX).";
-    if (!form.pickupSlotId) e.pickupSlotId = "Please choose a pickup slot.";
+    if (!form.pickupDate) e.pickupDate = "Please select a pickup date.";
+    if (!form.pickupConfigId) e.pickupConfigId = "Please select a pickup time.";
     return e;
   }
 
@@ -61,7 +77,8 @@ export default function CartPage() {
       const payload = {
         customerName: form.customerName.trim(),
         contactNumber: form.contactNumber,
-        pickupSlotId: form.pickupSlotId,
+        pickupDate: form.pickupDate,
+        pickupConfigId: form.pickupConfigId,
         items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
       };
       const { orderId, orderNo } = await api.placeOrder(payload);
@@ -74,16 +91,53 @@ export default function CartPage() {
     }
   }
 
-  const slotOptions = slots.map((s) => ({
-    value: s.slotId,
-    label: `${s.date} — ${s.timeRange} (${s.capacity - s.slotsUsed} slots left)`,
-  }));
+  function formatDateLabel(d) {
+    if (!d) return "";
+    const [y, m, day] = d.split("-").map(Number);
+    return new Date(y, m - 1, day).toLocaleDateString("en-PH", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  }
 
   const surfaceStyle = {
     background: "#1E1235",
     border: "1px solid rgba(201,168,76,0.18)",
     borderRadius: "12px",
     boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+  };
+
+  const inputStyle = {
+    width: "100%",
+    background: "rgba(255,255,255,0.05)",
+    border: "1.5px solid rgba(201,168,76,0.25)",
+    borderRadius: "8px",
+    color: "#F0E8D8",
+    fontSize: "0.87rem",
+    fontFamily: "Inter,sans-serif",
+    outline: "none",
+    padding: "11px 13px",
+    transition: "border 0.2s, background 0.2s",
+    WebkitAppearance: "none",
+    appearance: "none",
+    colorScheme: "dark",
+  };
+
+  const labelStyle = {
+    display: "block",
+    fontSize: "0.69rem",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    color: "#9080A8",
+    marginBottom: "6px",
+  };
+
+  const errorStyle = {
+    fontSize: "0.72rem",
+    color: "#E05252",
+    marginTop: "4px",
   };
 
   return (
@@ -137,7 +191,7 @@ export default function CartPage() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => updateQty(item.productId, item.qty - 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold transition-all duration-150"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold"
                     style={{
                       background: "rgba(201,168,76,0.12)",
                       color: "#C9A84C",
@@ -154,7 +208,7 @@ export default function CartPage() {
                   </span>
                   <button
                     onClick={() => updateQty(item.productId, item.qty + 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold transition-all duration-150"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold"
                     style={{
                       background: "rgba(201,168,76,0.12)",
                       color: "#C9A84C",
@@ -174,7 +228,7 @@ export default function CartPage() {
 
                 <button
                   onClick={() => removeItem(item.productId)}
-                  className="text-[0.75rem] font-medium transition-colors duration-150"
+                  className="text-[0.75rem] font-medium"
                   style={{ color: "rgba(224,82,82,0.7)" }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.color = "#E05252")
@@ -198,6 +252,7 @@ export default function CartPage() {
               >
                 Order Details
               </h2>
+
               <TextInput
                 label="Your Name"
                 value={form.customerName}
@@ -207,6 +262,7 @@ export default function CartPage() {
                 error={errors.customerName}
                 placeholder="Juan Dela Cruz"
               />
+
               <TextInput
                 label="Mobile Number"
                 value={form.contactNumber}
@@ -216,15 +272,157 @@ export default function CartPage() {
                 error={errors.contactNumber}
                 placeholder="09XXXXXXXXX"
               />
-              <SelectInput
-                label="Pickup Slot"
-                value={form.pickupSlotId}
-                onChange={(e) =>
-                  setForm({ ...form, pickupSlotId: e.target.value })
-                }
-                error={errors.pickupSlotId}
-                options={slotOptions}
-              />
+
+              {/* ── Pickup Date ── */}
+              <div className="mb-4">
+                <label style={labelStyle}>Pickup Date</label>
+                <input
+                  type="date"
+                  value={form.pickupDate}
+                  min={dateRange.earliestDate}
+                  max={dateRange.latestDate}
+                  onChange={(e) =>
+                    setForm({ ...form, pickupDate: e.target.value })
+                  }
+                  style={inputStyle}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#C9A84C";
+                    e.target.style.background = "rgba(201,168,76,0.06)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "rgba(201,168,76,0.25)";
+                    e.target.style.background = "rgba(255,255,255,0.05)";
+                  }}
+                />
+                {errors.pickupDate && (
+                  <p style={errorStyle}>{errors.pickupDate}</p>
+                )}
+              </div>
+
+              {/* ── Pickup Time ── */}
+              <div className="mb-4">
+                <label style={labelStyle}>Pickup Time</label>
+
+                {!form.pickupDate ? (
+                  <div
+                    className="px-3 py-2.5 rounded-lg text-[0.82rem]"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1.5px solid rgba(201,168,76,0.12)",
+                      color: "#5A4870",
+                    }}
+                  >
+                    Select a date first
+                  </div>
+                ) : slotsLoading ? (
+                  <div
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1.5px solid rgba(201,168,76,0.12)",
+                    }}
+                  >
+                    <Spinner className="!w-4 !h-4" />
+                    <span
+                      className="text-[0.8rem]"
+                      style={{ color: "#9080A8" }}
+                    >
+                      Loading slots…
+                    </span>
+                  </div>
+                ) : slots.length === 0 ? (
+                  <div
+                    className="px-3 py-2.5 rounded-lg text-[0.82rem]"
+                    style={{
+                      background: "rgba(224,82,82,0.08)",
+                      border: "1.5px solid rgba(224,82,82,0.2)",
+                      color: "#E05252",
+                    }}
+                  >
+                    No slots available on this date. Please choose another day.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {slots.map((slot) => (
+                      <label
+                        key={slot.configId}
+                        className="flex items-center justify-between px-3.5 py-3 rounded-lg cursor-pointer transition-all duration-150"
+                        style={{
+                          border:
+                            form.pickupConfigId === slot.configId
+                              ? "1.5px solid #C9A84C"
+                              : "1.5px solid rgba(201,168,76,0.2)",
+                          background:
+                            form.pickupConfigId === slot.configId
+                              ? "rgba(201,168,76,0.10)"
+                              : "rgba(255,255,255,0.03)",
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="pickupConfigId"
+                            value={slot.configId}
+                            checked={form.pickupConfigId === slot.configId}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                pickupConfigId: e.target.value,
+                              })
+                            }
+                            className="accent-[#C9A84C]"
+                          />
+                          <span
+                            className="font-semibold text-[0.85rem]"
+                            style={{ color: "#F0E8D8" }}
+                          >
+                            {slot.label}
+                          </span>
+                        </div>
+                        <span
+                          className="text-[0.72rem] font-medium"
+                          style={{
+                            color: slot.remaining <= 3 ? "#E8A94C" : "#3DBD87",
+                          }}
+                        >
+                          {slot.remaining} left
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {errors.pickupConfigId && (
+                  <p style={errorStyle}>{errors.pickupConfigId}</p>
+                )}
+              </div>
+
+              {/* Selected pickup summary */}
+              {form.pickupDate &&
+                form.pickupConfigId &&
+                (() => {
+                  const chosen = slots.find(
+                    (s) => s.configId === form.pickupConfigId,
+                  );
+                  return chosen ? (
+                    <div
+                      className="rounded-lg px-3.5 py-2.5 mb-4 text-[0.78rem]"
+                      style={{
+                        background: "rgba(201,168,76,0.08)",
+                        border: "1px solid rgba(201,168,76,0.2)",
+                      }}
+                    >
+                      <span style={{ color: "rgba(240,232,220,0.55)" }}>
+                        Pickup:{" "}
+                      </span>
+                      <span
+                        className="font-semibold"
+                        style={{ color: "#E8C96D" }}
+                      >
+                        {formatDateLabel(form.pickupDate)}, {chosen.label}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
 
               {/* Total */}
               <div

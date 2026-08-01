@@ -1,7 +1,17 @@
 const express = require("express");
 const { FieldValue } = require("firebase-admin/firestore");
-const { db, bucket, writeAuditLog, generateOrderNumber, getPublicUrl } = require("../utils/db");
-const { isValidPHMobile, validateOrderItems, isValidTransition } = require("../utils/validate");
+const {
+  db,
+  bucket,
+  writeAuditLog,
+  generateOrderNumber,
+  getPublicUrl,
+} = require("../utils/db");
+const {
+  isValidPHMobile,
+  validateOrderItems,
+  isValidTransition,
+} = require("../utils/validate");
 const { verifyToken, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -9,36 +19,77 @@ const router = express.Router();
 // ─── POST /api/orders — Place a new order ────────────────────────────────────
 router.post("/", async (req, res, next) => {
   try {
-    const { customerName, contactNumber, pickupSlotId, items } = req.body;
+    const { customerName, contactNumber, items } = req.body;
 
-    if (!customerName || typeof customerName !== "string" || customerName.trim().length < 2) {
-      return res.status(400).json({ error: "A valid customer name is required." });
+    if (
+      !customerName ||
+      typeof customerName !== "string" ||
+      customerName.trim().length < 2
+    ) {
+      return res
+        .status(400)
+        .json({ error: "A valid customer name is required." });
     }
     if (!isValidPHMobile(contactNumber)) {
-      return res.status(400).json({ error: "A valid PH mobile number is required (e.g. 09XXXXXXXXX)." });
+      return res.status(400).json({
+        error: "A valid PH mobile number is required (e.g. 09XXXXXXXXX).",
+      });
     }
     const itemError = validateOrderItems(items);
     if (itemError) return res.status(400).json({ error: itemError });
 
-    // Validate pickup slot
-    const slotRef = db.collection("pickup_slots").doc(pickupSlotId);
-    const slotSnap = await slotRef.get();
-    if (!slotSnap.exists) return res.status(400).json({ error: "Invalid pickup slot." });
-    const slot = slotSnap.data();
-    if (slot.slotsUsed >= slot.capacity) {
-      return res.status(400).json({ error: "This pickup slot is fully booked." });
+    // Validate pickup slot config + date
+    const pickupDateFromBody = req.body.pickupDate;
+    const pickupConfigIdFromBody = req.body.pickupConfigId;
+
+    if (!pickupDateFromBody || !/^\d{4}-\d{2}-\d{2}$/.test(pickupDateFromBody)) {
+      return res
+        .status(400)
+        .json({ error: "A valid pickup date (YYYY-MM-DD) is required." });
+    }
+    if (!pickupConfigIdFromBody) {
+      return res.status(400).json({ error: "A pickup time slot is required." });
+    }
+
+    const pickupDate = pickupDateFromBody;
+    const pickupConfigId = pickupConfigIdFromBody;
+
+    const configRef = db.collection("pickup_time_configs").doc(pickupConfigId);
+    const configSnap = await configRef.get();
+    if (!configSnap.exists || !configSnap.data().isActive) {
+      return res
+        .status(400)
+        .json({ error: "Invalid or inactive pickup time slot." });
+    }
+    const config = configSnap.data();
+
+    // Count existing non-cancelled orders for this date+config
+    const existingSnap = await db
+      .collection("orders")
+      .where("pickupDate", "==", pickupDate)
+      .where("pickupConfigId", "==", pickupConfigId)
+      .where("status", "not-in", ["cancelled", "rejected"])
+      .get();
+    if (existingSnap.size >= config.maxOrders) {
+      return res.status(400).json({
+        error: "This time slot is fully booked for the selected date.",
+      });
     }
 
     // Fetch products and validate stock
     const productIds = [...new Set(items.map((i) => i.productId))];
     const productSnaps = await Promise.all(
-      productIds.map((id) => db.collection("products").doc(id).get())
+      productIds.map((id) => db.collection("products").doc(id).get()),
     );
     const productMap = {};
     for (const snap of productSnaps) {
-      if (!snap.exists) return res.status(400).json({ error: `Product ${snap.id} not found.` });
+      if (!snap.exists)
+        return res.status(400).json({ error: `Product ${snap.id} not found.` });
       const data = snap.data();
-      if (!data.isAvailable) return res.status(400).json({ error: `${data.name} is currently unavailable.` });
+      if (!data.isAvailable)
+        return res
+          .status(400)
+          .json({ error: `${data.name} is currently unavailable.` });
       productMap[snap.id] = data;
     }
 
@@ -65,21 +116,19 @@ router.post("/", async (req, res, next) => {
       orderNo,
       customerName: customerName.trim(),
       contactNumber,
-      pickupSlotId,
+      pickupDate,
+      pickupConfigId,
+      pickupLabel: config.label, // "9:00 AM – 9:30 AM" — denormalized for display
       status: "pending",
       subtotal,
       total: subtotal,
       createdAt: FieldValue.serverTimestamp(),
       verifiedBy: null,
     });
-
     for (const item of orderItemsData) {
       const itemRef = db.collection("order_items").doc();
       batch.set(itemRef, { orderId: orderRef.id, ...item });
     }
-
-    // Increment slot usage
-    batch.update(slotRef, { slotsUsed: FieldValue.increment(1) });
 
     await batch.commit();
 
@@ -99,11 +148,14 @@ router.post("/:id/proof", async (req, res, next) => {
       return res.status(400).json({ error: "A valid image file is required." });
     }
     if (!refNumber || typeof refNumber !== "string") {
-      return res.status(400).json({ error: "A GCash/bank reference number is required." });
+      return res
+        .status(400)
+        .json({ error: "A GCash/bank reference number is required." });
     }
 
     const orderSnap = await db.collection("orders").doc(orderId).get();
-    if (!orderSnap.exists) return res.status(404).json({ error: "Order not found." });
+    if (!orderSnap.exists)
+      return res.status(404).json({ error: "Order not found." });
 
     // Upload to Cloud Storage
     const fileName = `payment_proofs/${orderId}/${Date.now()}.jpg`;
@@ -145,13 +197,16 @@ router.get("/track", async (req, res, next) => {
     if (orderNo) {
       query = db.collection("orders").where("orderNo", "==", orderNo);
     } else if (contactNumber && customerName) {
-      query = db.collection("orders")
+      query = db
+        .collection("orders")
         .where("contactNumber", "==", contactNumber)
         .where("customerName", "==", customerName)
         .orderBy("createdAt", "desc")
         .limit(5);
     } else {
-      return res.status(400).json({ error: "Provide orderNo, or contactNumber + customerName." });
+      return res
+        .status(400)
+        .json({ error: "Provide orderNo, or contactNumber + customerName." });
     }
 
     const snap = await query.get();
@@ -165,39 +220,52 @@ router.get("/track", async (req, res, next) => {
 });
 
 // ─── PATCH /api/orders/:id/status — Staff status transition ──────────────────
-router.patch("/:id/status", verifyToken, requireRole("staff", "admin"), async (req, res, next) => {
-  try {
-    const { id: orderId } = req.params;
-    const { status: toStatus } = req.body;
-    const actorUid = req.user.uid;
+router.patch(
+  "/:id/status",
+  verifyToken,
+  requireRole("staff", "admin"),
+  async (req, res, next) => {
+    try {
+      const { id: orderId } = req.params;
+      const { status: toStatus } = req.body;
+      const actorUid = req.user.uid;
 
-    if (!toStatus) return res.status(400).json({ error: "New status is required." });
+      if (!toStatus)
+        return res.status(400).json({ error: "New status is required." });
 
-    const orderRef = db.collection("orders").doc(orderId);
-    const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) return res.status(404).json({ error: "Order not found." });
+      const orderRef = db.collection("orders").doc(orderId);
+      const orderSnap = await orderRef.get();
+      if (!orderSnap.exists)
+        return res.status(404).json({ error: "Order not found." });
 
-    const { status: fromStatus } = orderSnap.data();
+      const { status: fromStatus } = orderSnap.data();
 
-    if (!isValidTransition(fromStatus, toStatus)) {
-      return res.status(400).json({
-        error: `Cannot transition order from '${fromStatus}' to '${toStatus}'.`,
+      if (!isValidTransition(fromStatus, toStatus)) {
+        return res.status(400).json({
+          error: `Cannot transition order from '${fromStatus}' to '${toStatus}'.`,
+        });
+      }
+
+      const updateData = {
+        status: toStatus,
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (toStatus === "payment_verified") updateData.verifiedBy = actorUid;
+
+      await orderRef.update(updateData);
+      await writeAuditLog({
+        orderId,
+        actorUid,
+        action: "status_change",
+        fromStatus,
+        toStatus,
       });
+
+      res.json({ success: true, orderId, fromStatus, toStatus });
+    } catch (err) {
+      next(err);
     }
-
-    const updateData = {
-      status: toStatus,
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-    if (toStatus === "payment_verified") updateData.verifiedBy = actorUid;
-
-    await orderRef.update(updateData);
-    await writeAuditLog({ orderId, actorUid, action: "status_change", fromStatus, toStatus });
-
-    res.json({ success: true, orderId, fromStatus, toStatus });
-  } catch (err) {
-    next(err);
-  }
-});
+  },
+);
 
 module.exports = router;
