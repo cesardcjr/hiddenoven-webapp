@@ -1,0 +1,17 @@
+{
+  "name": "product_images/1785552384425_Milky_Cheese_Balls",
+  "bucket": "hiddenoven-dev.firebasestorage.app",
+  "metageneration": 3,
+  "generation": 1785552384483,
+  "contentType": "image/jpeg",
+  "storageClass": "STANDARD",
+  "downloadTokens": [
+    "1145b97a-f43c-44d4-841a-c72ebbeb076d"
+  ],
+  "etag": "eY4yCZtHXAcr5QoW8P/E9NtJ1nI",
+  "timeCreated": "2026-08-01T02:46:24.483Z",
+  "updated": "2026-08-01T02:46:25.339Z",
+  "size": 235822,
+  "md5Hash": "nQfvWcluSwjj4UcviabNhA==",
+  "crc32c": "933855908"
+}

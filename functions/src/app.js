@@ -20,9 +20,11 @@ app.use(express.json());
 
 // ── Public routes ──────────────────────────────────────────────────────────────
 app.use("/api/orders", ordersRouter);
-app.use("/api/pickup-times", pickupTimesRouter); // /available and /available-dates are public
+app.use("/api/pickup-times/available-dates", pickupTimesRouter);
+app.use("/api/pickup-times/available", pickupTimesRouter);
 
 // ── Protected routes ───────────────────────────────────────────────────────────
+app.use("/api/pickup-times", verifyToken, pickupTimesRouter); // configs — admin only
 app.use("/api/dashboard", verifyToken, dashboardRouter);
 app.use("/api/reports", verifyToken, reportsRouter);
 app.use("/api/products", verifyToken, productsRouter);

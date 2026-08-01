@@ -27,13 +27,13 @@ function validateOrderItems(items) {
  * Allowed order status transitions.
  */
 const VALID_TRANSITIONS = {
-  pending: ["accepted", "rejected", "cancelled"],
-  accepted: ["payment_verified", "rejected", "cancelled"],
-  payment_verified: ["ready", "cancelled"],
-  ready: ["completed"],
-  rejected: [],
-  cancelled: [],
-  completed: [],
+  NEW: ["PAYMENT_REVIEW", "CANCELLED"],
+  PAYMENT_REVIEW: ["PREPARING", "PAYMENT_REJECTED", "CANCELLED"],
+  PAYMENT_REJECTED: ["PAYMENT_REVIEW", "CANCELLED"],
+  PREPARING: ["READY_FOR_PICKUP", "CANCELLED"],
+  READY_FOR_PICKUP: ["COMPLETED"],
+  COMPLETED: [],
+  CANCELLED: [],
 };
 
 function isValidTransition(from, to) {

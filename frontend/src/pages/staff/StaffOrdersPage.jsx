@@ -10,46 +10,65 @@ import { db } from "../../lib/firebase";
 import { api } from "../../lib/api";
 import { StaffLayout } from "../../components/layout/StaffLayout";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { Modal } from "../../components/ui/Modal";
-import { Spinner } from "../../components/ui/Spinner";
 import { useToast } from "../../components/ui/Toast";
+import { Spinner } from "../../components/ui/Spinner";
 
-const QUEUE_STATUSES = ["pending", "accepted", "payment_verified", "ready"];
+// ── Status machine ────────────────────────────────────────────────────────────
+const QUEUE_STATUSES = [
+  "NEW",
+  "PAYMENT_REVIEW",
+  "PAYMENT_REJECTED",
+  "PREPARING",
+  "READY_FOR_PICKUP",
+];
+
+const COLUMNS = [
+  { status: "NEW", label: "New Orders", color: "#E8A94C", icon: "🆕" },
+  {
+    status: "PAYMENT_REVIEW",
+    label: "Payment Review",
+    color: "#6B9FE8",
+    icon: "💳",
+  },
+  {
+    status: "PAYMENT_REJECTED",
+    label: "Payment Rejected",
+    color: "#E05252",
+    icon: "❌",
+  },
+  { status: "PREPARING", label: "Preparing", color: "#A78BFA", icon: "🍞" },
+  {
+    status: "READY_FOR_PICKUP",
+    label: "Ready for Pickup",
+    color: "#3DBD87",
+    icon: "✅",
+  },
+];
 
 const TRANSITIONS = {
-  pending: [
-    { label: "Accept Order →", to: "accepted", style: "primary" },
-    { label: "Cancel", to: "cancelled", style: "ghost" },
+  NEW: [
+    { label: "Accept", to: "PAYMENT_REVIEW", style: "primary" },
+    { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
-  accepted: [
-    { label: "Verify Payment ✓", to: "payment_verified", style: "success" },
-    { label: "Reject Payment", to: "rejected", style: "outline" },
-    { label: "Cancel", to: "cancelled", style: "ghost" },
+  PAYMENT_REVIEW: [
+    { label: "Verify Payment", to: "PREPARING", style: "success" },
+    { label: "Reject Payment", to: "PAYMENT_REJECTED", style: "danger" },
+    { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
-  payment_verified: [
-    { label: "Mark as Ready 🎁", to: "ready", style: "success" },
-    { label: "Cancel", to: "cancelled", style: "ghost" },
+  PAYMENT_REJECTED: [
+    { label: "Re-open Payment", to: "PAYMENT_REVIEW", style: "primary" },
+    { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
-  ready: [{ label: "Complete Pickup ✓", to: "completed", style: "success" }],
+  PREPARING: [
+    { label: "Mark Ready", to: "READY_FOR_PICKUP", style: "success" },
+    { label: "Cancel", to: "CANCELLED", style: "ghost" },
+  ],
+  READY_FOR_PICKUP: [
+    { label: "Complete Pickup", to: "COMPLETED", style: "success" },
+  ],
 };
 
-const STATUS_LABEL = {
-  pending: "New Order",
-  accepted: "Payment Review",
-  payment_verified: "Preparing",
-  ready: "Ready for Pickup",
-  completed: "Completed",
-  rejected: "Rejected",
-  cancelled: "Cancelled",
-};
-
-// Urgency dot colour by FIFO position
-function urgencyColor(index) {
-  if (index === 0) return "#E05252"; // high — red
-  if (index <= 2) return "#E8A94C"; // med  — amber
-  return "#3DBD87"; // low  — green
-}
-
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function ageStr(createdAt) {
   if (!createdAt?.toDate) return "";
   const m = Math.floor((Date.now() - createdAt.toDate()) / 60000);
@@ -58,46 +77,330 @@ function ageStr(createdAt) {
   return `${Math.floor(m / 60)}h ${m % 60}m ago`;
 }
 
+function btnStyle(variant) {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "5px 11px",
+    borderRadius: "6px",
+    fontSize: "0.72rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    border: "none",
+    transition: "all 0.15s",
+    whiteSpace: "nowrap",
+    fontFamily: "Inter, sans-serif",
+  };
+  if (variant === "primary")
+    return { ...base, background: "#C9A84C", color: "#1A0F2E" };
+  if (variant === "success")
+    return { ...base, background: "#3DBD87", color: "#fff" };
+  if (variant === "danger")
+    return { ...base, background: "#E05252", color: "#fff" };
+  if (variant === "ghost")
+    return {
+      ...base,
+      background: "transparent",
+      color: "#9080A8",
+      border: "1.5px solid rgba(201,168,76,0.18)",
+    };
+  return base;
+}
+
+// ── Order Card ────────────────────────────────────────────────────────────────
+function OrderCard({ order, rank, colColor, acting, onAction }) {
+  const transitions = TRANSITIONS[order.status] || [];
+
+  return (
+    <div
+      style={{
+        background: "#1E1235",
+        border: "1px solid rgba(201,168,76,0.14)",
+        borderTop: `3px solid ${colColor}`,
+        borderRadius: "12px",
+        padding: "14px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+      }}
+    >
+      {/* Card header — rank + order number + age */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "8px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+          <span
+            style={{
+              background: colColor,
+              color: "#1A0F2E",
+              borderRadius: "5px",
+              fontSize: "0.6rem",
+              fontWeight: 800,
+              padding: "2px 6px",
+              flexShrink: 0,
+            }}
+          >
+            #{rank}
+          </span>
+          <span
+            style={{
+              color: "#C9A84C",
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              fontFamily: "Inter, sans-serif",
+            }}
+          >
+            {order.orderNo}
+          </span>
+        </div>
+        <span
+          style={{
+            color: "#5A4870",
+            fontSize: "0.68rem",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {ageStr(order.createdAt)}
+        </span>
+      </div>
+
+      {/* Card body */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              color: "#F0E8D8",
+              fontWeight: 600,
+              fontSize: "0.82rem",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "65%",
+            }}
+          >
+            {order.customerName}
+          </span>
+          <span
+            style={{
+              color: "#E8C96D",
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              flexShrink: 0,
+            }}
+          >
+            ₱{(order.total || 0).toFixed(2)}
+          </span>
+        </div>
+        <span style={{ color: "#9080A8", fontSize: "0.73rem" }}>
+          {order.contactNumber}
+        </span>
+        <span style={{ color: "#5A4870", fontSize: "0.7rem" }}>
+          📅 {order.pickupDate} · {order.pickupLabel || "—"}
+        </span>
+      </div>
+
+      {/* Action buttons */}
+      {transitions.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: "6px",
+            flexWrap: "wrap",
+            paddingTop: "6px",
+            borderTop: "1px solid rgba(201,168,76,0.1)",
+          }}
+        >
+          {transitions.map((action) => (
+            <button
+              key={action.to}
+              style={btnStyle(action.style)}
+              disabled={acting}
+              onClick={() => onAction(order.orderId, action.to)}
+              onMouseEnter={(e) => {
+                if (action.style === "primary")
+                  e.currentTarget.style.background = "#E8C96D";
+                if (action.style === "success")
+                  e.currentTarget.style.background = "#2DA870";
+                if (action.style === "danger")
+                  e.currentTarget.style.background = "#C53030";
+                if (action.style === "ghost") {
+                  e.currentTarget.style.borderColor = "#9080A8";
+                  e.currentTarget.style.color = "#F0E8D8";
+                }
+              }}
+              onMouseLeave={(e) =>
+                Object.assign(e.currentTarget.style, btnStyle(action.style))
+              }
+            >
+              {acting ? "…" : action.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Column Panel ──────────────────────────────────────────────────────────────
+function ColumnPanel({ col, orders, acting, onAction }) {
+  return (
+    <div
+      style={{
+        background: "#120B22",
+        border: "1px solid rgba(201,168,76,0.1)",
+        borderRadius: "14px",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "200px",
+        overflow: "hidden",
+      }}
+    >
+      {/* Column header */}
+      <div
+        style={{
+          padding: "12px 16px",
+          borderBottom: "2px solid rgba(201,168,76,0.1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "#0D0820",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "1rem" }}>{col.icon}</span>
+          <span
+            style={{
+              color: col.color,
+              fontWeight: 700,
+              fontSize: "0.82rem",
+              letterSpacing: "0.2px",
+            }}
+          >
+            {col.label}
+          </span>
+        </div>
+        <span
+          style={{
+            background: col.color,
+            color: "#1A0F2E",
+            borderRadius: "20px",
+            fontSize: "0.65rem",
+            fontWeight: 800,
+            padding: "2px 8px",
+            minWidth: "22px",
+            textAlign: "center",
+          }}
+        >
+          {orders.length}
+        </span>
+      </div>
+
+      {/* Cards grid */}
+      <div
+        style={{
+          padding: "14px",
+          display: "grid",
+          gridTemplateColumns: "repeat(5, 1fr)",
+          gap: "12px",
+          alignContent: "start",
+          flex: 1,
+        }}
+        className="staff-card-grid"
+      >
+        {orders.length === 0 ? (
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              textAlign: "center",
+              padding: "32px 16px",
+              color: "#5A4870",
+              fontSize: "0.78rem",
+            }}
+          >
+            <div
+              style={{ fontSize: "1.8rem", marginBottom: "6px", opacity: 0.4 }}
+            >
+              📭
+            </div>
+            No orders here
+          </div>
+        ) : (
+          orders.map((order, idx) => (
+            <OrderCard
+              key={order.orderId}
+              order={order}
+              rank={idx + 1}
+              colColor={col.color}
+              acting={acting}
+              onAction={onAction}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function StaffOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
   const [acting, setActing] = useState(false);
+  const [activeTab, setActiveTab] = useState("NEW");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("fifo");
   const { showToast, ToastContainer } = useToast();
 
+  // Firestore real-time listener — uses correct uppercase status names
   useEffect(() => {
     const q = query(
       collection(db, "orders"),
       where("status", "in", QUEUE_STATUSES),
       orderBy("createdAt", "asc"),
     );
-    const unsub = onSnapshot(q, (snap) => {
-      setOrders(snap.docs.map((d) => ({ orderId: d.id, ...d.data() })));
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setOrders(snap.docs.map((d) => ({ orderId: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Order queue listener error:", err);
+        setLoading(false);
+      },
+    );
     return unsub;
   }, []);
 
-  async function handleTransition(orderId, toStatus) {
+  async function handleAction(orderId, toStatus) {
     setActing(true);
     try {
       await api.updateStatus(orderId, toStatus);
-      showToast(
-        `Order updated to "${STATUS_LABEL[toStatus] || toStatus}".`,
-        "success",
-      );
-      setSelected(null);
+      const label =
+        COLUMNS.find((c) => c.status === toStatus)?.label || toStatus;
+      showToast(`Order moved to "${label}".`, "success");
     } catch (err) {
-      showToast(err.message, "error");
+      showToast(err.message || "Failed to update order.", "error");
     } finally {
       setActing(false);
     }
   }
 
-  // Filter + sort
-  let displayed = orders.filter((o) => {
+  // Filter by search
+  const filtered = orders.filter((o) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -107,479 +410,170 @@ export default function StaffOrdersPage() {
     );
   });
 
-  if (sort === "amount") {
-    displayed = [...displayed].sort((a, b) => (b.total || 0) - (a.total || 0));
-  }
-  // default is already FIFO (createdAt asc from Firestore)
+  // Group by status — preserves FIFO (already sorted by createdAt asc)
+  const grouped = {};
+  QUEUE_STATUSES.forEach((s) => {
+    grouped[s] = [];
+  });
+  filtered.forEach((o) => {
+    if (grouped[o.status]) grouped[o.status].push(o);
+  });
 
-  // Styles
+  const activeCol = COLUMNS.find((c) => c.status === activeTab);
+  const activeOrders = grouped[activeTab] || [];
+  const totalActive = orders.length;
+
   const inputStyle = {
     background: "rgba(255,255,255,0.05)",
     border: "1.5px solid rgba(201,168,76,0.25)",
     borderRadius: "8px",
     color: "#F0E8D8",
-    fontSize: "0.84rem",
+    fontSize: "0.83rem",
     fontFamily: "Inter, sans-serif",
+    padding: "7px 12px 7px 32px",
     outline: "none",
+    width: "210px",
     transition: "border 0.2s",
   };
 
-  function btnStyle(variant) {
-    const base = {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "5px 12px",
-      borderRadius: "6px",
-      fontSize: "0.75rem",
-      fontWeight: 600,
-      cursor: "pointer",
-      border: "none",
-      transition: "all 0.18s",
-      whiteSpace: "nowrap",
-      fontFamily: "Inter, sans-serif",
-    };
-    if (variant === "primary")
-      return { ...base, background: "#C9A84C", color: "#1A0F2E" };
-    if (variant === "success")
-      return { ...base, background: "#3DBD87", color: "#fff" };
-    if (variant === "danger")
-      return { ...base, background: "#E05252", color: "#fff" };
-    if (variant === "outline")
-      return {
-        ...base,
-        background: "transparent",
-        color: "#F0E8D8",
-        border: "1.5px solid rgba(201,168,76,0.3)",
-      };
-    if (variant === "ghost")
-      return {
-        ...base,
-        background: "transparent",
-        color: "#9080A8",
-        border: "1.5px solid rgba(201,168,76,0.18)",
-      };
-    return base;
-  }
-
   return (
-    <StaffLayout orderCount={orders.length}>
+    <StaffLayout orderCount={totalActive}>
       <ToastContainer />
 
+      {/* Responsive grid styles injected once */}
+      <style>{`
+        @media (max-width: 1023px) { .staff-card-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+        @media (max-width: 639px)  { .staff-card-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+      `}</style>
+
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "16px",
+          flexWrap: "wrap",
+          gap: "10px",
+        }}
+      >
         <div>
           <h2
-            className="font-display font-bold text-[1.15rem]"
-            style={{ color: "#E8C96D" }}
+            style={{
+              color: "#E8C96D",
+              fontWeight: 700,
+              fontSize: "1.15rem",
+              fontFamily: "Inter, sans-serif",
+            }}
           >
             Order Queue
           </h2>
-          <p className="text-[0.75rem] mt-0.5" style={{ color: "#9080A8" }}>
-            {orders.length} active order{orders.length !== 1 ? "s" : ""}
+          <p
+            style={{ color: "#9080A8", fontSize: "0.74rem", marginTop: "2px" }}
+          >
+            {totalActive} active order{totalActive !== 1 ? "s" : ""}
           </p>
         </div>
-
-        {/* Search + sort */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <span
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[0.85rem] pointer-events-none"
-              style={{ color: "#5A4870" }}
-            >
-              🔍
-            </span>
-            <input
-              type="text"
-              placeholder="Search order or customer…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                ...inputStyle,
-                padding: "8px 12px 8px 32px",
-                width: "220px",
-              }}
-              onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
-              onBlur={(e) =>
-                (e.target.style.borderColor = "rgba(201,168,76,0.25)")
-              }
-            />
-          </div>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
+        {/* Search */}
+        <div style={{ position: "relative" }}>
+          <span
             style={{
-              ...inputStyle,
-              padding: "8px 12px",
-              cursor: "pointer",
-              appearance: "none",
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#5A4870",
+              fontSize: "0.85rem",
+              pointerEvents: "none",
             }}
+          >
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder="Search order or customer…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={inputStyle}
             onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
             onBlur={(e) =>
               (e.target.style.borderColor = "rgba(201,168,76,0.25)")
             }
-          >
-            <option value="fifo" style={{ background: "#261748" }}>
-              Sort: FIFO
-            </option>
-            <option value="amount" style={{ background: "#261748" }}>
-              Sort: Amount ↓
-            </option>
-          </select>
+          />
         </div>
       </div>
 
-      {/* ── Table ── */}
+      {/* ── Tab bar ── */}
+      <div
+        style={{
+          display: "flex",
+          gap: "6px",
+          flexWrap: "wrap",
+          marginBottom: "16px",
+          padding: "6px",
+          background: "#0D0820",
+          borderRadius: "12px",
+          border: "1px solid rgba(201,168,76,0.1)",
+        }}
+      >
+        {COLUMNS.map((col) => {
+          const count = grouped[col.status]?.length || 0;
+          const isActive = activeTab === col.status;
+          return (
+            <button
+              key={col.status}
+              onClick={() => setActiveTab(col.status)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "7px",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "Inter, sans-serif",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                transition: "all 0.18s",
+                background: isActive ? col.color + "22" : "transparent",
+                color: isActive ? col.color : "rgba(240,232,220,0.45)",
+                borderBottom: isActive
+                  ? `2px solid ${col.color}`
+                  : "2px solid transparent",
+              }}
+            >
+              <span style={{ fontSize: "0.9rem" }}>{col.icon}</span>
+              <span className="hidden sm:inline">{col.label}</span>
+              <span
+                style={{
+                  background: isActive ? col.color : "rgba(255,255,255,0.08)",
+                  color: isActive ? "#1A0F2E" : "#9080A8",
+                  borderRadius: "20px",
+                  fontSize: "0.62rem",
+                  fontWeight: 800,
+                  padding: "1px 7px",
+                  minWidth: "20px",
+                  textAlign: "center",
+                }}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Active column panel ── */}
       {loading ? (
         <Spinner className="py-20" />
-      ) : displayed.length === 0 ? (
-        <div className="text-center py-20" style={{ color: "#9080A8" }}>
-          <div className="text-4xl mb-3 opacity-50">📭</div>
-          <p className="text-[0.86rem]">No orders in queue.</p>
-          <p className="text-[0.75rem] mt-1" style={{ color: "#5A4870" }}>
-            New orders will appear here automatically.
-          </p>
-        </div>
       ) : (
-        <div
-          className="overflow-x-auto rounded-xl"
-          style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}
-        >
-          <table
-            className="w-full border-collapse"
-            style={{ fontSize: "0.82rem" }}
-          >
-            <thead>
-              <tr>
-                {[
-                  "Order No.",
-                  "Customer",
-                  "Items",
-                  "Total",
-                  "Pickup",
-                  "Status",
-                  "Actions",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left px-3 py-2.5 whitespace-nowrap"
-                    style={{
-                      fontSize: "0.65rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      color: "#9080A8",
-                      borderBottom: "2px solid rgba(201,168,76,0.18)",
-                      background: "#1E1235",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {displayed.map((order, idx) => {
-                const itemSummary = (order.items || [])
-                  .map((i) => `${i.name || i.productId} ×${i.qty}`)
-                  .join(", ");
-                const itemCount = (order.items || []).reduce(
-                  (s, i) => s + i.qty,
-                  0,
-                );
-
-                return (
-                  <tr
-                    key={order.orderId}
-                    onClick={() => setSelected(order)}
-                    className="cursor-pointer transition-colors duration-150"
-                    style={{ borderBottom: "1px solid rgba(201,168,76,0.09)" }}
-                    onMouseEnter={(e) => {
-                      Array.from(e.currentTarget.cells).forEach(
-                        (td) => (td.style.background = "rgba(201,168,76,0.05)"),
-                      );
-                    }}
-                    onMouseLeave={(e) => {
-                      Array.from(e.currentTarget.cells).forEach(
-                        (td) => (td.style.background = "#1E1235"),
-                      );
-                    }}
-                  >
-                    {/* Order No. + urgency */}
-                    <td
-                      className="px-3 py-3"
-                      style={{ background: "#1E1235", verticalAlign: "middle" }}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ background: urgencyColor(idx) }}
-                        />
-                        <span
-                          className="font-bold"
-                          style={{ color: "#C9A84C" }}
-                        >
-                          {order.orderNo}
-                        </span>
-                      </div>
-                      <div
-                        className="text-[0.71rem] mt-0.5 ml-3.5"
-                        style={{ color: "#9080A8" }}
-                      >
-                        {ageStr(order.createdAt)}
-                      </div>
-                    </td>
-
-                    {/* Customer */}
-                    <td
-                      className="px-3 py-3"
-                      style={{ background: "#1E1235", verticalAlign: "middle" }}
-                    >
-                      <div
-                        className="font-semibold"
-                        style={{ color: "#F0E8D8" }}
-                      >
-                        {order.customerName}
-                      </div>
-                      <div
-                        className="text-[0.71rem] mt-0.5"
-                        style={{ color: "#9080A8" }}
-                      >
-                        {order.contactNumber}
-                      </div>
-                    </td>
-
-                    {/* Items */}
-                    <td
-                      className="px-3 py-3"
-                      style={{
-                        background: "#1E1235",
-                        verticalAlign: "middle",
-                        maxWidth: "180px",
-                      }}
-                    >
-                      <div
-                        className="text-[0.8rem]"
-                        style={{
-                          color: "#F0E8D8",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {itemSummary || "—"}
-                      </div>
-                      <div
-                        className="text-[0.71rem] mt-0.5"
-                        style={{ color: "#9080A8" }}
-                      >
-                        {itemCount} item{itemCount !== 1 ? "s" : ""}
-                      </div>
-                    </td>
-
-                    {/* Total */}
-                    <td
-                      className="px-3 py-3 font-bold"
-                      style={{
-                        background: "#1E1235",
-                        verticalAlign: "middle",
-                        color: "#E8C96D",
-                      }}
-                    >
-                      ₱{order.total?.toFixed(2)}
-                    </td>
-
-                    {/* Pickup slot */}
-                    <td
-                      className="px-3 py-3"
-                      style={{ background: "#1E1235", verticalAlign: "middle" }}
-                    >
-                      <div
-                        className="text-[0.78rem] font-semibold"
-                        style={{ color: "#F0E8D8" }}
-                      >
-                        {order.pickupSlotId || "—"}
-                      </div>
-                    </td>
-
-                    {/* Status */}
-                    <td
-                      className="px-3 py-3"
-                      style={{ background: "#1E1235", verticalAlign: "middle" }}
-                    >
-                      <StatusBadge status={order.status} />
-                    </td>
-
-                    {/* Actions */}
-                    <td
-                      className="px-3 py-3"
-                      style={{ background: "#1E1235", verticalAlign: "middle" }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {(TRANSITIONS[order.status] || []).map((action) => (
-                          <button
-                            key={action.to}
-                            style={btnStyle(action.style)}
-                            onClick={() =>
-                              handleTransition(order.orderId, action.to)
-                            }
-                            disabled={acting}
-                            onMouseEnter={(e) => {
-                              if (action.style === "primary")
-                                e.currentTarget.style.background = "#E8C96D";
-                              if (action.style === "success")
-                                e.currentTarget.style.background = "#2DA870";
-                              if (action.style === "danger")
-                                e.currentTarget.style.background = "#C53030";
-                              if (action.style === "outline") {
-                                e.currentTarget.style.borderColor = "#C9A84C";
-                                e.currentTarget.style.color = "#C9A84C";
-                              }
-                              if (action.style === "ghost") {
-                                e.currentTarget.style.borderColor = "#9080A8";
-                                e.currentTarget.style.color = "#F0E8D8";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              Object.assign(
-                                e.currentTarget.style,
-                                btnStyle(action.style),
-                              );
-                            }}
-                          >
-                            {acting ? "…" : action.label}
-                          </button>
-                        ))}
-                        <button
-                          style={btnStyle("ghost")}
-                          onClick={() => setSelected(order)}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = "#9080A8";
-                            e.currentTarget.style.color = "#F0E8D8";
-                          }}
-                          onMouseLeave={(e) =>
-                            Object.assign(
-                              e.currentTarget.style,
-                              btnStyle("ghost"),
-                            )
-                          }
-                        >
-                          Details
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ColumnPanel
+          col={activeCol}
+          orders={activeOrders}
+          acting={acting}
+          onAction={handleAction}
+        />
       )}
-
-      {/* ── Order detail modal ── */}
-      <Modal
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected?.orderNo}
-      >
-        {selected && (
-          <div>
-            {/* Info grid */}
-            <div className="grid grid-cols-2 gap-3 mb-5 text-[0.82rem]">
-              {[
-                ["Customer", selected.customerName],
-                ["Contact", selected.contactNumber],
-                ["Total", `₱${selected.total?.toFixed(2)}`],
-                ["Pickup Slot", selected.pickupSlotId || "—"],
-              ].map(([label, val]) => (
-                <div key={label}>
-                  <p
-                    className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-1"
-                    style={{ color: "#9080A8" }}
-                  >
-                    {label}
-                  </p>
-                  <p
-                    className="font-semibold"
-                    style={{ color: label === "Total" ? "#C9A84C" : "#F0E8D8" }}
-                  >
-                    {val}
-                  </p>
-                </div>
-              ))}
-              <div>
-                <p
-                  className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-1"
-                  style={{ color: "#9080A8" }}
-                >
-                  Status
-                </p>
-                <StatusBadge status={selected.status} />
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div
-              className="pt-4"
-              style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
-            >
-              <p
-                className="text-[0.65rem] font-bold uppercase tracking-[0.6px] mb-3"
-                style={{ color: "#9080A8" }}
-              >
-                Available Actions
-              </p>
-              <div className="flex gap-2.5 flex-wrap">
-                {(TRANSITIONS[selected.status] || []).map((action) => (
-                  <button
-                    key={action.to}
-                    style={{
-                      ...btnStyle(action.style),
-                      padding: "8px 16px",
-                      fontSize: "0.8rem",
-                    }}
-                    disabled={acting}
-                    onClick={() =>
-                      handleTransition(selected.orderId, action.to)
-                    }
-                    onMouseEnter={(e) => {
-                      if (action.style === "primary")
-                        e.currentTarget.style.background = "#E8C96D";
-                      if (action.style === "success")
-                        e.currentTarget.style.background = "#2DA870";
-                      if (action.style === "danger")
-                        e.currentTarget.style.background = "#C53030";
-                      if (action.style === "outline") {
-                        e.currentTarget.style.borderColor = "#C9A84C";
-                        e.currentTarget.style.color = "#C9A84C";
-                      }
-                      if (action.style === "ghost") {
-                        e.currentTarget.style.borderColor = "#9080A8";
-                        e.currentTarget.style.color = "#F0E8D8";
-                      }
-                    }}
-                    onMouseLeave={(e) =>
-                      Object.assign(e.currentTarget.style, {
-                        ...btnStyle(action.style),
-                        padding: "8px 16px",
-                        fontSize: "0.8rem",
-                      })
-                    }
-                  >
-                    {acting ? "…" : action.label}
-                  </button>
-                ))}
-                {!(TRANSITIONS[selected.status] || []).length && (
-                  <p className="text-[0.79rem]" style={{ color: "#9080A8" }}>
-                    No further actions available.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
     </StaffLayout>
   );
 }

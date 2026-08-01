@@ -42,7 +42,10 @@ router.post("/", async (req, res, next) => {
     const pickupDateFromBody = req.body.pickupDate;
     const pickupConfigIdFromBody = req.body.pickupConfigId;
 
-    if (!pickupDateFromBody || !/^\d{4}-\d{2}-\d{2}$/.test(pickupDateFromBody)) {
+    if (
+      !pickupDateFromBody ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(pickupDateFromBody)
+    ) {
       return res
         .status(400)
         .json({ error: "A valid pickup date (YYYY-MM-DD) is required." });
@@ -93,19 +96,25 @@ router.post("/", async (req, res, next) => {
       productMap[snap.id] = data;
     }
 
-    // Compute totals server-side
+   // Compute totals server-side
     let subtotal = 0;
+    let totalQty = 0;
     const orderItemsData = items.map((item) => {
       const product = productMap[item.productId];
       const lineTotal = product.price * item.qty;
       subtotal += lineTotal;
+      totalQty += item.qty;
       return {
         productId: item.productId,
+        productName: product.name,
         qty: item.qty,
         unitPrice: product.price,
         lineTotal,
       };
     });
+
+    // Auto-accept rule: total qty < 20 skips NEW → goes straight to PAYMENT_REVIEW
+    const initialStatus = totalQty < 20 ? "PAYMENT_REVIEW" : "NEW";
 
     // Atomic write
     const orderNo = await generateOrderNumber();
@@ -118,8 +127,8 @@ router.post("/", async (req, res, next) => {
       contactNumber,
       pickupDate,
       pickupConfigId,
-      pickupLabel: config.label, // "9:00 AM – 9:30 AM" — denormalized for display
-      status: "pending",
+      pickupLabel: config.label,
+      status: initialStatus,
       subtotal,
       total: subtotal,
       createdAt: FieldValue.serverTimestamp(),
@@ -132,12 +141,7 @@ router.post("/", async (req, res, next) => {
 
     await batch.commit();
 
-    res.status(201).json({ orderId: orderRef.id, orderNo });
-  } catch (err) {
-    next(err);
-  }
-});
-
+    res.status(201).json({ orderId: orderRef.id, orderNo, status: initialStatus });
 // ─── POST /api/orders/:id/proof — Upload payment proof ───────────────────────
 router.post("/:id/proof", async (req, res, next) => {
   try {

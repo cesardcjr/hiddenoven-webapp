@@ -2,7 +2,7 @@ const admin = require("firebase-admin");
 const { FieldValue } = require("firebase-admin/firestore");
 
 if (
-  process.env.NODE_ENV !== "production" &&
+  process.env.USE_FIREBASE_EMULATORS === "true" &&
   !process.env.FIREBASE_AUTH_EMULATOR_HOST
 ) {
   process.env.FIREBASE_AUTH_EMULATOR_HOST = "localhost:9099";
@@ -10,19 +10,18 @@ if (
 
 const DEFAULT_USERS = [
   {
-    email: "staff@hiddenoven.com",
-    password: "staff123",
+    email: process.env.DEFAULT_STAFF_EMAIL || "staff@hiddenoven.com",
+    password: process.env.DEFAULT_STAFF_PASSWORD || "ChangeMe_Staff!",
     role: "staff",
     name: "Staff Account",
   },
   {
-    email: "admin@hiddenoven.com",
-    password: "admin123",
+    email: process.env.DEFAULT_ADMIN_EMAIL || "admin@hiddenoven.com",
+    password: process.env.DEFAULT_ADMIN_PASSWORD || "ChangeMe_Admin!",
     role: "admin",
     name: "Admin Account",
   },
 ];
-
 async function ensureDefaultUsers() {
   if (!admin.apps.length) {
     throw new Error("Firebase Admin SDK is not initialized yet.");

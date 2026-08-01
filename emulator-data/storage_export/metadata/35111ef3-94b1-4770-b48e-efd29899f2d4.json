@@ -1,0 +1,17 @@
+{
+  "name": "product_images/1785552409743_Classic_Spanish_Bread",
+  "bucket": "hiddenoven-dev.firebasestorage.app",
+  "metageneration": 3,
+  "generation": 1785552409764,
+  "contentType": "image/jpeg",
+  "storageClass": "STANDARD",
+  "downloadTokens": [
+    "c574f8e4-2b1d-4388-82ee-61ea43b66f53"
+  ],
+  "etag": "6lOf8Uk6aZV1Rcxa6UpM043VRlE",
+  "timeCreated": "2026-08-01T02:46:49.764Z",
+  "updated": "2026-08-01T02:46:49.872Z",
+  "size": 220795,
+  "md5Hash": "jlixNDIRrz4se3IaBwb1EQ==",
+  "crc32c": "2548332751"
+}

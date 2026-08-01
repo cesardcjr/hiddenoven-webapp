@@ -13,6 +13,7 @@ scripts/serviceAccountKey.json
 .env.local
 .env.*.local
 frontend/.env.local
+functions/.env.local
 
 # Firebase
 **/serviceAccountKey.json
