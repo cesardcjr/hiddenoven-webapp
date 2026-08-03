@@ -523,6 +523,7 @@ export default function StaffOrdersPage() {
             <button
               key={col.status}
               onClick={() => setActiveTab(col.status)}
+              title={col.label}
               style={{
                 display: "flex",
                 alignItems: "center",

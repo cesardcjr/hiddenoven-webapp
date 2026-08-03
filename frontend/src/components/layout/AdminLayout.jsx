@@ -42,7 +42,9 @@ const PAGE_TITLES = {
 export function AdminLayout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("admin_sidebar_collapsed") === "true",
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const [dateStr, setDateStr] = useState("");
@@ -108,7 +110,13 @@ export function AdminLayout({ children }) {
       >
         {/* Collapse toggle — desktop only */}
         <button
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() =>
+            setCollapsed((c) => {
+              const next = !c;
+              localStorage.setItem("admin_sidebar_collapsed", String(next));
+              return next;
+            })
+          }
           className="hidden md:flex absolute top-5 -right-3 z-10 w-6 h-6 rounded-full items-center justify-center text-[0.65rem] font-bold"
           style={{
             background: "#C9A84C",

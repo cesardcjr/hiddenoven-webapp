@@ -31,21 +31,6 @@ export default function LoginPage({ portalRole }) {
     }
   }
 
-  const inputStyle = {
-    width: "100%",
-    padding: "11px 13px",
-    border: "1.5px solid rgba(201,168,76,0.25)",
-    borderRadius: "8px",
-    fontSize: "0.87rem",
-    fontFamily: "Inter, sans-serif",
-    background: "rgba(255,255,255,0.05)",
-    color: "#F0E8D8",
-    outline: "none",
-    transition: "border 0.2s, background 0.2s",
-    WebkitAppearance: "none",
-    appearance: "none",
-  };
-
   return (
     <div
       className="min-h-screen flex items-center justify-center p-5"
@@ -93,12 +78,7 @@ export default function LoginPage({ portalRole }) {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <label
-                className="block text-[0.69rem] font-bold uppercase tracking-[0.5px] mb-1.5"
-                style={{ color: "#9080A8" }}
-              >
-                Email
-              </label>
+              <label className="label">Email</label>
               <input
                 type="email"
                 value={email}
@@ -106,15 +86,7 @@ export default function LoginPage({ portalRole }) {
                 placeholder="staff@hiddenoven.com"
                 required
                 autoFocus
-                style={inputStyle}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#C9A84C";
-                  e.target.style.background = "rgba(201,168,76,0.06)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "rgba(201,168,76,0.25)";
-                  e.target.style.background = "rgba(255,255,255,0.05)";
-                }}
+                className="input"
               />
             </div>
 
@@ -140,24 +112,7 @@ export default function LoginPage({ portalRole }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-lg font-semibold text-[0.87rem] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: "#C9A84C",
-                color: "#1A0F2E",
-                border: "none",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
-                if (!loading) {
-                  e.currentTarget.style.background = "#E8C96D";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 16px rgba(201,168,76,0.3)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#C9A84C";
-                e.currentTarget.style.boxShadow = "none";
-              }}
+              className="btn-primary w-full py-2.5 text-[0.87rem]"
             >
               {loading ? "Signing in…" : "Sign in"}
             </button>

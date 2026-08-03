@@ -8,7 +8,9 @@ const NAV_ITEMS = [
 
 export function StaffLayout({ children, orderCount = 0 }) {
   const { user, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("staff_sidebar_collapsed") === "true",
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Live date chip
@@ -57,7 +59,13 @@ export function StaffLayout({ children, orderCount = 0 }) {
       >
         {/* Collapse toggle (desktop only) */}
         <button
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() =>
+            setCollapsed((c) => {
+              const next = !c;
+              localStorage.setItem("staff_sidebar_collapsed", String(next));
+              return next;
+            })
+          }
           className="hidden md:flex absolute top-5 -right-3 z-10 w-6 h-6 rounded-full items-center justify-center text-[0.65rem] font-bold transition-transform duration-[250ms]"
           style={{
             background: "#C9A84C",

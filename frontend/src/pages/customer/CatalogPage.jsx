@@ -161,6 +161,17 @@ export default function CatalogPage() {
                 >
                   {product.name}
                 </h3>
+
+                {/* Description — only rendered if present in Firestore */}
+                {product.description && (
+                  <p
+                    className="text-[0.76rem] mb-2 line-clamp-2"
+                    style={{ color: "rgba(240,232,220,0.45)" }}
+                  >
+                    {product.description}
+                  </p>
+                )}
+
                 <p
                   className="font-bold text-[1rem] mb-4"
                   style={{ color: "#C9A84C" }}

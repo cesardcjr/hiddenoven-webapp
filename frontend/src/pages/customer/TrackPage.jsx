@@ -9,11 +9,11 @@ import { TextInput } from "../../components/ui/FormField";
 import { Spinner } from "../../components/ui/Spinner";
 
 const STATUS_STEPS = [
-  { key: "pending", label: "Placed" },
-  { key: "accepted", label: "Confirmed" },
-  { key: "payment_verified", label: "Paid" },
-  { key: "ready", label: "Ready" },
-  { key: "completed", label: "Done" },
+  { key: "NEW", label: "Placed" },
+  { key: "PAYMENT_REVIEW", label: "Confirmed" },
+  { key: "PREPARING", label: "Preparing" },
+  { key: "READY_FOR_PICKUP", label: "Ready" },
+  { key: "COMPLETED", label: "Done" },
 ];
 
 export default function TrackPage() {
@@ -132,10 +132,22 @@ export default function TrackPage() {
             placeholder="Juan Dela Cruz"
           />
 
+          {/* ── Styled error state ── */}
           {error && (
-            <p className="text-[0.78rem] mb-3" style={{ color: "#E05252" }}>
-              {error}
-            </p>
+            <div
+              className="rounded-xl px-5 py-4 mb-3 text-[0.83rem]"
+              style={{
+                background: "rgba(224,82,82,0.08)",
+                border: "1px solid rgba(224,82,82,0.2)",
+                color: "#E05252",
+              }}
+            >
+              <p className="font-semibold mb-1">Order not found</p>
+              <p style={{ color: "rgba(240,232,220,0.45)" }}>
+                {error}. Double-check your order number or mobile number and try
+                again.
+              </p>
+            </div>
           )}
 
           <button
@@ -169,7 +181,7 @@ export default function TrackPage() {
             </div>
 
             {/* Progress bar — hidden for rejected / cancelled */}
-            {!["rejected", "cancelled"].includes(order.status) && (
+            {!["PAYMENT_REJECTED", "CANCELLED"].includes(order.status) && (
               <div className="mb-5">
                 {/* Bar track */}
                 <div className="flex items-center gap-1 mb-1.5">
@@ -216,12 +228,15 @@ export default function TrackPage() {
                   ₱{order.total?.toFixed(2)}
                 </span>
               </div>
-              {order.pickupSlotId && (
+              {(order.pickupLabel || order.pickupSlotId) && (
                 <div className="flex justify-between">
                   <span style={{ color: "rgba(240,232,220,0.45)" }}>
-                    Pickup Slot
+                    Pickup
                   </span>
-                  <span style={{ color: "#F0E8D8" }}>{order.pickupSlotId}</span>
+                  <span style={{ color: "#F0E8D8" }}>
+                    {order.pickupDate} ·{" "}
+                    {order.pickupLabel || order.pickupSlotId}
+                  </span>
                 </div>
               )}
             </div>

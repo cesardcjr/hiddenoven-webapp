@@ -1,10 +1,15 @@
 import { useState } from "react";
 
-export function FormField({ label, error, children }) {
+export function FormField({ label, error, hint, children }) {
   return (
     <div className="mb-4">
       {label && <label className="label">{label}</label>}
       {children}
+      {hint && !error && (
+        <p className="mt-1 text-[0.7rem]" style={{ color: "#9080A8" }}>
+          {hint}
+        </p>
+      )}
       {error && (
         <p className="mt-1 text-[0.72rem]" style={{ color: "#E05252" }}>
           {error}
@@ -14,18 +19,18 @@ export function FormField({ label, error, children }) {
   );
 }
 
-export function TextInput({ label, error, ...props }) {
+export function TextInput({ label, error, hint, ...props }) {
   return (
-    <FormField label={label} error={error}>
+    <FormField label={label} error={error} hint={hint}>
       <input className="input" {...props} />
     </FormField>
   );
 }
 
-export function PasswordInput({ label, error, ...props }) {
+export function PasswordInput({ label, error, hint, ...props }) {
   const [visible, setVisible] = useState(false);
   return (
-    <FormField label={label} error={error}>
+    <FormField label={label} error={error} hint={hint}>
       <div className="relative">
         <input
           type={visible ? "text" : "password"}
@@ -83,9 +88,9 @@ export function PasswordInput({ label, error, ...props }) {
   );
 }
 
-export function SelectInput({ label, error, options = [], ...props }) {
+export function SelectInput({ label, error, hint, options = [], ...props }) {
   return (
-    <FormField label={label} error={error}>
+    <FormField label={label} error={error} hint={hint}>
       <select className="input" style={{ background: "#1E1235" }} {...props}>
         <option value="" style={{ background: "#261748" }}>
           Select…

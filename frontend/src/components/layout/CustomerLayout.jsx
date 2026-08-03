@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../../context/CartContext";
 
@@ -5,8 +6,27 @@ export function CustomerLayout({ children }) {
   const { count } = useCart();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (count === 0) return;
+    const badge = document.getElementById("cart-badge");
+    if (!badge) return;
+    badge.classList.remove("cart-badge-pop");
+    void badge.offsetWidth; // force reflow to restart animation
+    badge.classList.add("cart-badge-pop");
+  }, [count]);
+
   return (
     <div className="min-h-screen flex flex-col bg-plum-900">
+      <style>{`
+        @keyframes cartBadgePop {
+          0%   { transform: scale(1); }
+          40%  { transform: scale(1.45); }
+          70%  { transform: scale(0.88); }
+          100% { transform: scale(1); }
+        }
+        .cart-badge-pop { animation: cartBadgePop 0.35s ease; }
+      `}</style>
+
       {/* ── Header ── */}
       <header
         className="sticky top-0 z-40 h-14 flex items-center justify-between px-4 md:px-8"
@@ -76,6 +96,7 @@ export function CustomerLayout({ children }) {
             Cart
             {count > 0 && (
               <span
+                id="cart-badge"
                 className="absolute -top-2 -right-2 text-white text-[0.65rem] font-bold rounded-full h-5 w-5 flex items-center justify-center"
                 style={{ background: "#E05252" }}
               >

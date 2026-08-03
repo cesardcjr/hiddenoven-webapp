@@ -12,6 +12,8 @@ export default function CartPage() {
   const navigate = useNavigate();
   const { showToast, ToastContainer } = useToast();
 
+  const [clearConfirm, setClearConfirm] = useState(false);
+
   const [dateRange, setDateRange] = useState({
     earliestDate: "",
     latestDate: "",
@@ -28,7 +30,6 @@ export default function CartPage() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Load available date range on mount
   useEffect(() => {
     api
       .getAvailableDates()
@@ -39,7 +40,6 @@ export default function CartPage() {
       .catch(() => {});
   }, []);
 
-  // Reload slots whenever selected date changes
   useEffect(() => {
     if (!form.pickupDate) return;
     setSlotsLoading(true);
@@ -144,12 +144,56 @@ export default function CartPage() {
     <CustomerLayout>
       <ToastContainer />
 
-      <h1
-        className="font-display text-2xl font-bold mb-6"
-        style={{ color: "#E8C96D" }}
-      >
-        Your Cart
-      </h1>
+      {/* ── Page heading with Clear Cart ── */}
+      <div className="flex items-center justify-between mb-6">
+        <h1
+          className="font-display text-2xl font-bold"
+          style={{ color: "#E8C96D" }}
+        >
+          Your Cart
+        </h1>
+
+        {items.length > 0 &&
+          (clearConfirm ? (
+            <div className="flex items-center gap-2">
+              <span
+                className="text-[0.75rem]"
+                style={{ color: "rgba(240,232,220,0.45)" }}
+              >
+                Clear all items?
+              </span>
+              <button
+                onClick={() => {
+                  clearCart();
+                  setClearConfirm(false);
+                }}
+                className="text-[0.75rem] font-semibold"
+                style={{ color: "#E05252" }}
+              >
+                Yes, clear
+              </button>
+              <button
+                onClick={() => setClearConfirm(false)}
+                className="text-[0.75rem] font-medium"
+                style={{ color: "rgba(240,232,220,0.4)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setClearConfirm(true)}
+              className="text-[0.75rem] font-medium transition-colors duration-150"
+              style={{ color: "rgba(240,232,220,0.35)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#E05252")}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "rgba(240,232,220,0.35)")
+              }
+            >
+              Clear cart
+            </button>
+          ))}
+      </div>
 
       {items.length === 0 ? (
         <div

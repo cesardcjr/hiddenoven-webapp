@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 const TOAST_STYLES = {
   success: {
@@ -65,10 +65,14 @@ export function Toast({ message, type = "info", onClose }) {
 }
 
 export function useToast() {
+  // Monotonic counter — never produces duplicate IDs even if two toasts
+  // are triggered within the same millisecond
+  const counter = useRef(0);
   const [toasts, setToasts] = useState([]);
 
   function showToast(message, type = "info") {
-    const id = Date.now();
+    counter.current += 1;
+    const id = counter.current;
     setToasts((prev) => [...prev, { id, message, type }]);
   }
 
