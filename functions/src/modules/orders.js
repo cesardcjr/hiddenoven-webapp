@@ -96,7 +96,7 @@ router.post("/", async (req, res, next) => {
       productMap[snap.id] = data;
     }
 
-   // Compute totals server-side
+    // Compute totals server-side
     let subtotal = 0;
     let totalQty = 0;
     const orderItemsData = items.map((item) => {
@@ -141,7 +141,13 @@ router.post("/", async (req, res, next) => {
 
     await batch.commit();
 
-    res.status(201).json({ orderId: orderRef.id, orderNo, status: initialStatus });
+    res
+      .status(201)
+      .json({ orderId: orderRef.id, orderNo, status: initialStatus });
+  } catch (err) {
+    next(err);
+  }
+});
 // ─── POST /api/orders/:id/proof — Upload payment proof ───────────────────────
 router.post("/:id/proof", async (req, res, next) => {
   try {
