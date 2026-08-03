@@ -9,21 +9,26 @@ import { Spinner } from "../../components/ui/Spinner";
 import { useToast } from "../../components/ui/Toast";
 
 const ALL_TRANSITIONS = {
-  pending: [
-    { label: "Accept", to: "accepted", style: "primary" },
-    { label: "Reject", to: "rejected", style: "danger" },
-    { label: "Cancel", to: "cancelled", style: "ghost" },
+  NEW: [
+    { label: "Accept", to: "PAYMENT_REVIEW", style: "primary" },
+    { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
-  accepted: [
-    { label: "Verify Payment", to: "payment_verified", style: "success" },
-    { label: "Reject", to: "rejected", style: "danger" },
-    { label: "Cancel", to: "cancelled", style: "ghost" },
+  PAYMENT_REVIEW: [
+    { label: "Confirm Payment", to: "PREPARING", style: "success" },
+    { label: "Reject Payment", to: "PAYMENT_REJECTED", style: "danger" },
+    { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
-  payment_verified: [
-    { label: "Mark Ready", to: "ready", style: "success" },
-    { label: "Cancel", to: "cancelled", style: "ghost" },
+  PAYMENT_REJECTED: [
+    { label: "Re-open for Payment", to: "PAYMENT_REVIEW", style: "primary" },
+    { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
-  ready: [{ label: "Complete Pickup", to: "completed", style: "success" }],
+  PREPARING: [
+    { label: "Mark Ready", to: "READY_FOR_PICKUP", style: "success" },
+    { label: "Cancel", to: "CANCELLED", style: "ghost" },
+  ],
+  READY_FOR_PICKUP: [
+    { label: "Complete Pickup", to: "COMPLETED", style: "success" },
+  ],
 };
 
 function btnStyle(variant) {

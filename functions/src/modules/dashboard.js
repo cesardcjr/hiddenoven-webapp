@@ -1,33 +1,39 @@
 const express = require("express");
 const { db } = require("../utils/db");
-const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
 // GET /api/dashboard/summary
-router.get("/summary", requireRole("admin"), async (req, res, next) => {
+router.get("/summary", async (req, res, next) => {
   try {
     const ordersSnap = await db.collection("orders").get();
     const orders = ordersSnap.docs.map((d) => d.data());
 
     const summary = {
       total: orders.length,
-      pending: 0,
-      accepted: 0,
-      payment_verified: 0,
-      ready: 0,
-      completed: 0,
-      rejected: 0,
-      cancelled: 0,
+      NEW: 0,
+      PAYMENT_REVIEW: 0,
+      PAYMENT_REJECTED: 0,
+      PREPARING: 0,
+      READY_FOR_PICKUP: 0,
+      COMPLETED: 0,
+      CANCELLED: 0,
       totalRevenue: 0,
     };
 
     for (const order of orders) {
       if (summary[order.status] !== undefined) summary[order.status]++;
-      if (order.status === "completed") summary.totalRevenue += order.total || 0;
+      if (order.status === "COMPLETED")
+        summary.totalRevenue += order.total || 0;
     }
 
-    res.json(summary);
+    // Convenience aliases the frontend KPI cards expect
+    res.json({
+      ...summary,
+      pending: summary.NEW + summary.PAYMENT_REVIEW + summary.PAYMENT_REJECTED,
+      completed: summary.COMPLETED,
+      cancelled: summary.CANCELLED,
+    });
   } catch (err) {
     next(err);
   }
