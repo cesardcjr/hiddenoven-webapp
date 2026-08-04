@@ -216,7 +216,7 @@ router.get("/available", async (req, res, next) => {
     const orderSnap = await db
       .collection("orders")
       .where("pickupDate", "==", date)
-      .where("status", "not-in", ["cancelled", "rejected"])
+      .where("status", "not-in", ["CANCELLED", "PAYMENT_REJECTED"])
       .get();
 
     const orderCounts = {};

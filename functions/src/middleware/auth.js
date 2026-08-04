@@ -20,7 +20,8 @@ async function verifyToken(req, res, next) {
 
 function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    const userRole = req.user?.role ?? req.user?.["role"];
+    if (!req.user || !roles.includes(userRole)) {
       return res.status(403).json({ error: "Insufficient permissions." });
     }
     next();

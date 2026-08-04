@@ -11,13 +11,13 @@ if (
 const DEFAULT_USERS = [
   {
     email: process.env.DEFAULT_STAFF_EMAIL || "staff@hiddenoven.com",
-    password: process.env.DEFAULT_STAFF_PASSWORD || "ChangeMe_Staff!",
+    password: process.env.DEFAULT_STAFF_PASSWORD,
     role: "staff",
     name: "Staff Account",
   },
   {
     email: process.env.DEFAULT_ADMIN_EMAIL || "admin@hiddenoven.com",
-    password: process.env.DEFAULT_ADMIN_PASSWORD || "ChangeMe_Admin!",
+    password: process.env.DEFAULT_ADMIN_PASSWORD,
     role: "admin",
     name: "Admin Account",
   },

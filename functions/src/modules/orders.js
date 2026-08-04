@@ -71,7 +71,7 @@ router.post("/", async (req, res, next) => {
       .collection("orders")
       .where("pickupDate", "==", pickupDate)
       .where("pickupConfigId", "==", pickupConfigId)
-      .where("status", "not-in", ["cancelled", "rejected"])
+      .where("status", "not-in", ["CANCELLED", "PAYMENT_REJECTED"])
       .get();
     if (existingSnap.size >= config.maxOrders) {
       return res.status(400).json({

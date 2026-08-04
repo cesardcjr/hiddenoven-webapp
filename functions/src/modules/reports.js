@@ -11,7 +11,9 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
     const { from, to } = req.query;
 
     if (!from || !to) {
-      return res.status(400).json({ error: "from and to date query params are required (YYYY-MM-DD)." });
+      return res.status(400).json({
+        error: "from and to date query params are required (YYYY-MM-DD).",
+      });
     }
 
     const fromDate = new Date(from);
@@ -22,8 +24,9 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
       return res.status(400).json({ error: "Invalid date format." });
     }
 
-    const ordersSnap = await db.collection("orders")
-      .where("status", "==", "completed")
+    const ordersSnap = await db
+      .collection("orders")
+      .where("status", "==", "COMPLETED")
       .where("createdAt", ">=", Timestamp.fromDate(fromDate))
       .where("createdAt", "<=", Timestamp.fromDate(toDate))
       .get();
@@ -33,7 +36,8 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
     // Aggregate top products
     const productCounts = {};
     for (const order of orders) {
-      const itemsSnap = await db.collection("order_items")
+      const itemsSnap = await db
+        .collection("order_items")
         .where("orderId", "==", order.id)
         .get();
       for (const item of itemsSnap.docs) {

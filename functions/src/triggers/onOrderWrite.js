@@ -30,12 +30,11 @@ async function onOrderWrite(change, context) {
   // Status changed
   if (before.status !== after.status) {
     const messages = {
-      accepted: `Order ${after.orderNo} has been accepted.`,
-      payment_verified: `Payment for order ${after.orderNo} has been verified.`,
-      ready: `Order ${after.orderNo} is ready for pickup.`,
-      completed: `Order ${after.orderNo} has been completed.`,
-      rejected: `Order ${after.orderNo} was rejected.`,
-      cancelled: `Order ${after.orderNo} was cancelled.`,
+      PREPARING: `Order ${after.orderNo} has been accepted and is being prepared.`,
+      READY_FOR_PICKUP: `Order ${after.orderNo} is ready for pickup.`,
+      COMPLETED: `Order ${after.orderNo} has been completed.`,
+      PAYMENT_REJECTED: `Payment for order ${after.orderNo} was rejected.`,
+      CANCELLED: `Order ${after.orderNo} was cancelled.`,
     };
 
     const message = messages[after.status];

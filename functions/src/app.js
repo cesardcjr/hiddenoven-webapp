@@ -10,7 +10,7 @@ const paymentsRouter = require("./modules/payments");
 const pickupTimesRouter = require("./modules/pickupTime");
 
 const { ensureDefaultUsers } = require("./bootstrap/createDefaultUsers");
-const { verifyToken } = require("./middleware/auth");
+const { verifyToken, requireRole } = require("./middleware/auth");
 const { errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -33,7 +33,7 @@ app.use("/api/pickup-times/available", pickupTimesRouter);
 
 // ── Protected routes ───────────────────────────────────────────────────────────
 app.use("/api/pickup-times", verifyToken, pickupTimesRouter); // configs — admin only
-app.use("/api/dashboard", verifyToken, dashboardRouter);
+app.use("/api/dashboard", verifyToken, requireRole("admin"), dashboardRouter);
 app.use("/api/reports", verifyToken, reportsRouter);
 app.use("/api/products", verifyToken, productsRouter);
 app.use("/api/staff", verifyToken, staffRouter);
