@@ -160,17 +160,19 @@ export default function AdminOrdersPage() {
             <thead>
               <tr>
                 {[
-                  "Order No.",
-                  "Customer",
-                  "Contact",
-                  "Total",
-                  "Status",
-                  "Date",
-                  "",
+                  { label: "Order No.", mobile: true },
+                  { label: "Customer", mobile: true },
+                  { label: "Contact", mobile: false },
+                  { label: "Total", mobile: true },
+                  { label: "Status", mobile: true },
+                  { label: "Date", mobile: false },
+                  { label: "", mobile: false },
                 ].map((h) => (
                   <th
-                    key={h}
-                    className="text-left px-3 py-2.5 whitespace-nowrap"
+                    key={h.label || "actions"}
+                    className={`text-left px-3 py-2.5 whitespace-nowrap ${
+                      h.mobile ? "" : "hidden sm:table-cell"
+                    }`}
                     style={{
                       fontSize: "0.65rem",
                       fontWeight: 700,
@@ -181,7 +183,7 @@ export default function AdminOrdersPage() {
                       background: "#1E1235",
                     }}
                   >
-                    {h}
+                    {h.label}
                   </th>
                 ))}
               </tr>
@@ -194,6 +196,7 @@ export default function AdminOrdersPage() {
                     borderBottom: "1px solid rgba(201,168,76,0.09)",
                     cursor: "pointer",
                   }}
+                  onClick={() => setSelected(o)}
                   onMouseEnter={(e) =>
                     Array.from(e.currentTarget.cells).forEach(
                       (td) => (td.style.background = "rgba(201,168,76,0.05)"),
@@ -226,7 +229,7 @@ export default function AdminOrdersPage() {
                     {o.customerName}
                   </td>
                   <td
-                    className="px-3 py-3"
+                    className="hidden sm:table-cell px-3 py-3"
                     style={{
                       background: "#1E1235",
                       color: "#9080A8",
@@ -252,7 +255,7 @@ export default function AdminOrdersPage() {
                     <StatusBadge status={o.status} />
                   </td>
                   <td
-                    className="px-3 py-3 text-[0.73rem] whitespace-nowrap"
+                    className="hidden sm:table-cell px-3 py-3 text-[0.73rem] whitespace-nowrap"
                     style={{
                       background: "#1E1235",
                       color: "#9080A8",
@@ -263,11 +266,14 @@ export default function AdminOrdersPage() {
                       "—"}
                   </td>
                   <td
-                    className="px-3 py-3"
+                    className="hidden sm:table-cell px-3 py-3"
                     style={{ background: "#1E1235", verticalAlign: "middle" }}
                   >
                     <button
-                      onClick={() => setSelected(o)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelected(o);
+                      }}
                       className="text-[0.75rem] font-semibold transition-colors"
                       style={{
                         background: "none",

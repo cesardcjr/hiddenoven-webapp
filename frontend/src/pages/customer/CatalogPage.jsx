@@ -111,7 +111,7 @@ export default function CatalogPage() {
           <p className="text-sm">No items available in this category.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {filtered.map((product) => (
             <div
               key={product.productId}
@@ -135,12 +135,12 @@ export default function CatalogPage() {
                 <img
                   src={product.imageUrl}
                   alt={product.name}
-                  className="w-full h-44 object-cover"
+                  className="w-full h-36 md:h-44 object-cover"
                   style={{ background: "#261748" }}
                 />
               ) : (
                 <div
-                  className="w-full h-44 flex items-center justify-center text-4xl"
+                  className="w-full h-36 md:h-44 flex items-center justify-center text-4xl"
                   style={{ background: "#261748" }}
                 >
                   🍞
@@ -148,7 +148,7 @@ export default function CatalogPage() {
               )}
 
               {/* Body */}
-              <div className="flex flex-col flex-1 p-4">
+              <div className="flex flex-col flex-1 p-3 md:p-4">
                 <p
                   className="text-[0.68rem] font-bold uppercase tracking-[0.5px] mb-1"
                   style={{ color: "#C9A84C" }}

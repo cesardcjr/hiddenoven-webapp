@@ -30,6 +30,7 @@ app.use(express.json());
 app.use("/api/orders", ordersRouter);
 app.use("/api/pickup-times/available-dates", pickupTimesRouter);
 app.use("/api/pickup-times/available", pickupTimesRouter);
+app.use("/api/payment-modes", paymentsRouter);
 
 // ── Protected routes ───────────────────────────────────────────────────────────
 app.use("/api/pickup-times", verifyToken, pickupTimesRouter); // configs — admin only

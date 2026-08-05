@@ -41,6 +41,14 @@
         { "fieldPath": "isActive", "order": "ASCENDING" },
         { "fieldPath": "startMinutes", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "payment_modes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

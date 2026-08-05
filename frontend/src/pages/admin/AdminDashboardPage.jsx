@@ -73,12 +73,18 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  function loadDashboard() {
+    setLoading(true);
+    setError("");
     api
       .getDashboard()
       .then(setSummary)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadDashboard();
   }, []);
 
   if (loading)
@@ -90,9 +96,14 @@ export default function AdminDashboardPage() {
   if (error)
     return (
       <AdminLayout>
-        <p className="text-sm py-10 text-center" style={{ color: "#E05252" }}>
-          {error}
-        </p>
+        <div className="py-10 text-center">
+          <p className="text-sm mb-3" style={{ color: "#E05252" }}>
+            {error}
+          </p>
+          <button type="button" className="btn-secondary" onClick={loadDashboard}>
+            Try again
+          </button>
+        </div>
       </AdminLayout>
     );
 
@@ -143,19 +154,27 @@ export default function AdminDashboardPage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
-            { label: "Accepted", value: summary.accepted, color: "#6B9FE8" },
+            { label: "New", value: summary.NEW, color: "#6B9FE8" },
             {
-              label: "Payment Verified",
-              value: summary.payment_verified,
+              label: "Payment Review",
+              value: summary.PAYMENT_REVIEW,
               color: "#A78BFA",
             },
             {
-              label: "Ready for Pickup",
-              value: summary.ready,
+              label: "Preparing",
+              value: summary.PREPARING,
               color: "#3DBD87",
             },
-            { label: "Rejected", value: summary.rejected, color: "#E05252" },
-            { label: "Cancelled", value: summary.cancelled, color: "#9080A8" },
+            {
+              label: "Ready for Pickup",
+              value: summary.READY_FOR_PICKUP,
+              color: "#3DBD87",
+            },
+            {
+              label: "Payment Rejected",
+              value: summary.PAYMENT_REJECTED,
+              color: "#E05252",
+            },
           ].map(({ label, value, color }) => (
             <div
               key={label}

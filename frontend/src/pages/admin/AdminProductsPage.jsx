@@ -131,10 +131,10 @@ export default function AdminProductsPage() {
     }
   }
   async function handleDelete(p) {
-    if (!confirm(`Mark "${p.name}" as unavailable?`)) return;
+    if (!confirm(`Delete "${p.name}" from the active catalog?`)) return;
     try {
       await api.deleteProduct(p.productId);
-      showToast("Product deactivated.", "success");
+      showToast("Product deleted.", "success");
       loadProducts();
     } catch (err) {
       showToast(err.message, "error");
@@ -165,7 +165,7 @@ export default function AdminProductsPage() {
       {loading ? (
         <Spinner className="py-20" />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
           {products.map((p) => (
             <div
               key={p.productId}
@@ -280,7 +280,7 @@ export default function AdminProductsPage() {
                     (e.currentTarget.style.background = "#E05252")
                   }
                 >
-                  Deactivate
+                  Delete
                 </button>
               </div>
             </div>

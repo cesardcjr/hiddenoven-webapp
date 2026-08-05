@@ -46,6 +46,7 @@ export function AdminLayout({ children }) {
     () => localStorage.getItem("admin_sidebar_collapsed") === "true",
   );
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const [dateStr, setDateStr] = useState("");
   useEffect(() => {
@@ -60,9 +61,18 @@ export function AdminLayout({ children }) {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const sync = () => setIsDesktop(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
   const pageTitle = PAGE_TITLES[location.pathname] || "Admin";
   const initials = user?.email ? user.email.charAt(0).toUpperCase() : "A";
-  const sbW = collapsed ? "64px" : "240px";
+  const effectiveCollapsed = isDesktop && collapsed;
+  const sbW = effectiveCollapsed ? "64px" : "240px";
 
   const navItemBase = {
     display: "flex",
@@ -101,7 +111,9 @@ export function AdminLayout({ children }) {
           SIDEBAR
       ══════════════════════════ */}
       <aside
-        className="flex flex-col h-full flex-shrink-0 relative z-50 transition-all duration-[250ms] ease-[cubic-bezier(.4,0,.2,1)]"
+        className={`fixed md:relative inset-y-0 left-0 flex flex-col h-full flex-shrink-0 z-50 transition-all duration-[250ms] ease-[cubic-bezier(.4,0,.2,1)] ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
         style={{
           width: sbW,
           background: "#0D0820",
@@ -123,7 +135,7 @@ export function AdminLayout({ children }) {
             color: "#1A0F2E",
             border: "2px solid #120B22",
             boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
-            transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+            transform: effectiveCollapsed ? "rotate(180deg)" : "rotate(0deg)",
             transition: "transform 0.25s",
           }}
         >
@@ -145,7 +157,7 @@ export function AdminLayout({ children }) {
           >
             HO
           </div>
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <div className="overflow-hidden whitespace-nowrap">
               <span
                 className="font-display font-bold text-[0.95rem] tracking-[0.3px] block"
@@ -170,7 +182,7 @@ export function AdminLayout({ children }) {
         >
           {NAV_SECTIONS.map((section) => (
             <div key={section.label}>
-              {!collapsed && (
+              {!effectiveCollapsed && (
                 <div
                   className="px-[18px] pt-3.5 pb-1 text-[0.6rem] font-bold uppercase tracking-[0.8px]"
                   style={{ color: "rgba(240,232,220,0.28)" }}
@@ -203,11 +215,12 @@ export function AdminLayout({ children }) {
                       e.currentTarget.style.color = "rgba(240,232,220,0.55)";
                     }
                   }}
+                  onClick={() => setMobileOpen(false)}
                 >
                   <span className="text-[1.1rem] w-[22px] text-center flex-shrink-0">
                     {item.icon}
                   </span>
-                  {!collapsed && (
+                  {!effectiveCollapsed && (
                     <span className="overflow-hidden">{item.label}</span>
                   )}
                 </NavLink>
@@ -216,7 +229,7 @@ export function AdminLayout({ children }) {
           ))}
 
           {/* Logout */}
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <>
               <div
                 className="px-[18px] pt-3.5 pb-1 text-[0.6rem] font-bold uppercase tracking-[0.8px]"
@@ -256,7 +269,7 @@ export function AdminLayout({ children }) {
           >
             {initials}
           </div>
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <div className="overflow-hidden whitespace-nowrap flex-1">
               <div
                 className="text-[0.78rem] font-semibold truncate"

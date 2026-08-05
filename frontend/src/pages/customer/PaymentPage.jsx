@@ -1,22 +1,52 @@
-import { useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
+import { useCart } from "../../context/CartContext";
 import { CustomerLayout } from "../../components/layout/CustomerLayout";
 import { TextInput } from "../../components/ui/FormField";
 import { useToast } from "../../components/ui/Toast";
 
 export default function PaymentPage() {
-  const { orderId } = useParams();
-  const [params] = useSearchParams();
-  const orderNo = params.get("orderNo");
+  const location = useLocation();
   const navigate = useNavigate();
+  const { clearCart } = useCart();
   const { showToast, ToastContainer } = useToast();
+  const [checkoutDraft] = useState(() => {
+    if (location.state?.checkoutDraft) return location.state.checkoutDraft;
+    const stored = sessionStorage.getItem("checkout_draft");
+    return stored ? JSON.parse(stored) : null;
+  });
 
   const [refNumber, setRefNumber] = useState("");
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [paymentModes, setPaymentModes] = useState([]);
+  const [modesLoading, setModesLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .getPaymentModes()
+      .then(setPaymentModes)
+      .catch(() => setPaymentModes([]))
+      .finally(() => setModesLoading(false));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  function readFileAsBase64(f) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = () => reject(new Error("Could not read image file."));
+      reader.readAsDataURL(f);
+    });
+  }
 
   function handleFile(e) {
     const f = e.target.files[0];
@@ -31,10 +61,15 @@ export default function PaymentPage() {
     }
     setError("");
     setFile(f);
+    if (preview) URL.revokeObjectURL(preview);
     setPreview(URL.createObjectURL(f));
   }
 
   async function handleSubmit() {
+    if (!checkoutDraft) {
+      setError("Please return to your cart and proceed to payment again.");
+      return;
+    }
     if (!file) {
       setError("Please upload your payment screenshot.");
       return;
@@ -46,20 +81,28 @@ export default function PaymentPage() {
 
     setSubmitting(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const imageBase64 = reader.result.split(",")[1];
-        await api.uploadProof(orderId, {
-          imageBase64,
-          mimeType: file.type,
-          refNumber: refNumber.trim(),
-        });
-        showToast("Payment submitted! We'll verify it shortly.", "success");
-        setTimeout(() => navigate(`/track?orderNo=${orderNo}`), 2000);
-      };
-      reader.readAsDataURL(file);
+      const imageBase64 = await readFileAsBase64(file);
+      const result = await api.placeOrderWithPayment({
+        ...checkoutDraft,
+        imageBase64,
+        mimeType: file.type,
+        refNumber: refNumber.trim(),
+      });
+      clearCart();
+      sessionStorage.removeItem("checkout_draft");
+      showToast("Payment submitted! We'll verify it shortly.", "success");
+      setTimeout(
+        () =>
+          navigate(
+            `/track?orderNo=${encodeURIComponent(result.orderNo)}&direct=true`,
+            { replace: true },
+          ),
+        1200,
+      );
     } catch (err) {
       showToast(err.message, "error");
+      setError(err.message);
+    } finally {
       setSubmitting(false);
     }
   }
@@ -75,6 +118,14 @@ export default function PaymentPage() {
     <CustomerLayout>
       <ToastContainer />
       <div className="max-w-lg mx-auto">
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <button className="btn-secondary" onClick={() => navigate("/cart")}>
+            Back to Cart
+          </button>
+          <button className="btn-secondary" onClick={() => navigate("/")}>
+            Back to Home
+          </button>
+        </div>
         <div style={surfaceStyle} className="p-6">
           {/* Header */}
           <div className="mb-6">
@@ -82,7 +133,7 @@ export default function PaymentPage() {
               className="text-[0.7rem] font-bold uppercase tracking-[1px] mb-1"
               style={{ color: "#C9A84C" }}
             >
-              Order Placed ✓
+              Payment Required
             </p>
             <h1
               className="font-display text-2xl font-bold"
@@ -94,11 +145,119 @@ export default function PaymentPage() {
               className="text-sm mt-1"
               style={{ color: "rgba(240,232,220,0.55)" }}
             >
-              Order No:{" "}
-              <span className="font-semibold" style={{ color: "#F0E8D8" }}>
-                {orderNo}
-              </span>
+              Your order will be created after payment proof is submitted.
             </p>
+          </div>
+
+          {!checkoutDraft ? (
+            <div
+              className="rounded-lg p-4 mb-6 text-[0.82rem]"
+              style={{
+                background: "rgba(224,82,82,0.08)",
+                border: "1px solid rgba(224,82,82,0.2)",
+                color: "#E05252",
+              }}
+            >
+              No checkout details found. Please return to your cart and proceed
+              to payment again.
+            </div>
+          ) : (
+            <div
+              className="rounded-lg p-4 mb-6 text-[0.8rem]"
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(201,168,76,0.18)",
+              }}
+            >
+              <div className="flex justify-between mb-1 gap-3">
+                <span style={{ color: "#9080A8" }}>Customer</span>
+                <span style={{ color: "#F0E8D8" }}>
+                  {checkoutDraft.customerName}
+                </span>
+              </div>
+              <div className="flex justify-between mb-1 gap-3">
+                <span style={{ color: "#9080A8" }}>Pickup</span>
+                <span className="text-right" style={{ color: "#F0E8D8" }}>
+                  {checkoutDraft.pickupDate}, {checkoutDraft.pickupLabel}
+                </span>
+              </div>
+              <div className="flex justify-between font-bold gap-3">
+                <span style={{ color: "#9080A8" }}>Total</span>
+                <span style={{ color: "#C9A84C" }}>
+                  ₱{Number(checkoutDraft.total || 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Payment modes */}
+          <div className="mb-6">
+            <label className="label">Payment Modes</label>
+            {modesLoading ? (
+              <div
+                className="rounded-lg p-4 text-[0.8rem]"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(201,168,76,0.15)",
+                  color: "#9080A8",
+                }}
+              >
+                Loading payment options...
+              </div>
+            ) : paymentModes.length === 0 ? (
+              <div
+                className="rounded-lg p-4 text-[0.8rem]"
+                style={{
+                  background: "rgba(224,82,82,0.08)",
+                  border: "1px solid rgba(224,82,82,0.2)",
+                  color: "#E05252",
+                }}
+              >
+                No payment modes are available right now.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {paymentModes.map((mode) => (
+                  <div
+                    key={mode.modeId}
+                    className="rounded-lg p-3"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(201,168,76,0.18)",
+                    }}
+                  >
+                    {mode.qrImageUrl && (
+                      <img
+                        src={mode.qrImageUrl}
+                        alt={`${mode.provider} QR code`}
+                        className="w-full aspect-square object-contain rounded-lg mb-3"
+                        style={{ background: "#261748" }}
+                      />
+                    )}
+                    <div
+                      className="font-bold text-[0.86rem]"
+                      style={{ color: "#E8C96D" }}
+                    >
+                      {mode.provider}
+                    </div>
+                    {mode.accountName && (
+                      <div
+                        className="text-[0.74rem] mt-0.5"
+                        style={{ color: "rgba(240,232,220,0.55)" }}
+                      >
+                        {mode.accountName}
+                      </div>
+                    )}
+                    <div
+                      className="text-[0.78rem] font-semibold break-all mt-1"
+                      style={{ color: "#F0E8D8" }}
+                    >
+                      {mode.accountNumber}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Instructions banner */}
@@ -110,8 +269,8 @@ export default function PaymentPage() {
               color: "#E8C96D",
             }}
           >
-            <strong>How to pay:</strong> Send your GCash or Maya payment to our
-            account, then upload the screenshot below.
+            <strong>How to pay:</strong> Send your payment using one of the
+            modes above, then upload the screenshot below.
           </div>
 
           {/* File upload */}
@@ -171,23 +330,12 @@ export default function PaymentPage() {
 
           <button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !checkoutDraft}
             className="btn-primary w-full"
           >
             {submitting ? "Submitting…" : "Submit Payment"}
           </button>
 
-          <button
-            onClick={() => navigate(`/track?orderNo=${orderNo}`)}
-            className="w-full text-center text-[0.78rem] mt-3 transition-colors duration-150"
-            style={{ color: "rgba(240,232,220,0.4)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#C9A84C")}
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "rgba(240,232,220,0.4)")
-            }
-          >
-            Skip for now — Track my order
-          </button>
         </div>
       </div>
     </CustomerLayout>

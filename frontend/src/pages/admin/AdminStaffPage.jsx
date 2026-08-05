@@ -35,6 +35,7 @@ function btnStyle(v) {
       color: "#9080A8",
       border: "1.5px solid rgba(201,168,76,0.18)",
     };
+  if (v === "danger") return { ...b, background: "#E05252", color: "#fff" };
   return b;
 }
 
@@ -81,9 +82,7 @@ export default function AdminStaffPage() {
 
   async function handleToggle(member) {
     if (
-      !confirm(
-        `${member.isActive ? "Deactivate" : "Reactivate"} ${member.name}?`,
-      )
+      !confirm(`${member.isActive ? "Delete" : "Reactivate"} ${member.name}?`)
     )
       return;
     try {
@@ -91,7 +90,7 @@ export default function AdminStaffPage() {
         ? await api.deactivateStaff(member.uid)
         : await api.updateStaff(member.uid, { isActive: true });
       showToast(
-        `Staff member ${member.isActive ? "deactivated" : "reactivated"}.`,
+        `Staff member ${member.isActive ? "deleted" : "reactivated"}.`,
         "success",
       );
       loadStaff();
@@ -130,7 +129,7 @@ export default function AdminStaffPage() {
       {loading ? (
         <Spinner className="py-20" />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
           {staff.map((s) => (
             <div
               key={s.uid}
@@ -239,7 +238,7 @@ export default function AdminStaffPage() {
                   Edit
                 </button>
                 <button
-                  style={btnStyle("ghost")}
+                  style={btnStyle(s.isActive ? "danger" : "ghost")}
                   onClick={() => handleToggle(s)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = "#9080A8";
@@ -250,7 +249,7 @@ export default function AdminStaffPage() {
                     e.currentTarget.style.color = "#9080A8";
                   }}
                 >
-                  {s.isActive ? "Deactivate" : "Activate"}
+                  {s.isActive ? "Delete" : "Activate"}
                 </button>
               </div>
             </div>

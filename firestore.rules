@@ -39,6 +39,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /payment_modes/{modeId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
     // Pickup time configs — public read, admin write only
     match /pickup_time_configs/{configId} {
       allow read:  if true;

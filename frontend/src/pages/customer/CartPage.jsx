@@ -28,7 +28,6 @@ export default function CartPage() {
     pickupConfigId: "",
   });
   const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     api
@@ -61,7 +60,7 @@ export default function CartPage() {
     return e;
   }
 
-  async function handleCheckout() {
+  function handleCheckout() {
     const e = validate();
     if (Object.keys(e).length) {
       setErrors(e);
@@ -72,23 +71,25 @@ export default function CartPage() {
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const payload = {
-        customerName: form.customerName.trim(),
-        contactNumber: form.contactNumber,
-        pickupDate: form.pickupDate,
-        pickupConfigId: form.pickupConfigId,
-        items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
-      };
-      const { orderId, orderNo } = await api.placeOrder(payload);
-      clearCart();
-      navigate(`/payment/${orderId}?orderNo=${orderNo}`);
-    } catch (err) {
-      showToast(err.message, "error");
-    } finally {
-      setSubmitting(false);
-    }
+    const payload = {
+      customerName: form.customerName.trim(),
+      contactNumber: form.contactNumber,
+      pickupDate: form.pickupDate,
+      pickupConfigId: form.pickupConfigId,
+      pickupLabel:
+        slots.find((slot) => slot.configId === form.pickupConfigId)?.label ||
+        "",
+      total,
+      items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
+      displayItems: items.map((i) => ({
+        productId: i.productId,
+        name: i.name,
+        qty: i.qty,
+        price: i.price,
+      })),
+    };
+    sessionStorage.setItem("checkout_draft", JSON.stringify(payload));
+    navigate("/payment", { state: { checkoutDraft: payload } });
   }
 
   function formatDateLabel(d) {
@@ -202,7 +203,7 @@ export default function CartPage() {
         >
           <div className="text-5xl mb-4 opacity-40">🛒</div>
           <p className="mb-5 text-sm">Your cart is empty.</p>
-          <button onClick={() => navigate("/")} className="btn-primary">
+          <button onClick={() => navigate("/catalog")} className="btn-primary">
             Browse Products
           </button>
         </div>
@@ -285,6 +286,29 @@ export default function CartPage() {
                 </button>
               </div>
             ))}
+            <div
+              className="flex justify-between items-center px-5 py-4 rounded-card"
+              style={surfaceStyle}
+            >
+              <span
+                className="font-semibold text-sm"
+                style={{ color: "#F0E8D8" }}
+              >
+                Total Amount
+              </span>
+              <span
+                className="font-bold text-lg"
+                style={{ color: "#C9A84C" }}
+              >
+                ₱{total.toFixed(2)}
+              </span>
+            </div>
+            <button
+              onClick={() => navigate("/catalog")}
+              className="btn-secondary"
+            >
+              Back to Catalog
+            </button>
           </div>
 
           {/* ── Order details / checkout ── */}
@@ -386,54 +410,22 @@ export default function CartPage() {
                     No slots available on this date. Please choose another day.
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {slots.map((slot) => (
-                      <label
-                        key={slot.configId}
-                        className="flex items-center justify-between px-3.5 py-3 rounded-lg cursor-pointer transition-all duration-150"
-                        style={{
-                          border:
-                            form.pickupConfigId === slot.configId
-                              ? "1.5px solid #C9A84C"
-                              : "1.5px solid rgba(201,168,76,0.2)",
-                          background:
-                            form.pickupConfigId === slot.configId
-                              ? "rgba(201,168,76,0.10)"
-                              : "rgba(255,255,255,0.03)",
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="radio"
-                            name="pickupConfigId"
-                            value={slot.configId}
-                            checked={form.pickupConfigId === slot.configId}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                pickupConfigId: e.target.value,
-                              })
-                            }
-                            className="accent-[#C9A84C]"
-                          />
-                          <span
-                            className="font-semibold text-[0.85rem]"
-                            style={{ color: "#F0E8D8" }}
-                          >
-                            {slot.label}
-                          </span>
-                        </div>
-                        <span
-                          className="text-[0.72rem] font-medium"
-                          style={{
-                            color: slot.remaining <= 3 ? "#E8A94C" : "#3DBD87",
-                          }}
-                        >
-                          {slot.remaining} left
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                  <select
+                    value={form.pickupConfigId}
+                    onChange={(e) =>
+                      setForm({ ...form, pickupConfigId: e.target.value })
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="">Select pickup time</option>
+                    {slots
+                      .filter((slot) => slot.remaining > 0)
+                      .map((slot) => (
+                        <option key={slot.configId} value={slot.configId}>
+                          {slot.label}
+                        </option>
+                      ))}
+                  </select>
                 )}
                 {errors.pickupConfigId && (
                   <p style={errorStyle}>{errors.pickupConfigId}</p>
@@ -489,10 +481,9 @@ export default function CartPage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={submitting}
                 className="btn-primary w-full"
               >
-                {submitting ? "Placing Order…" : "Place Order"}
+                Proceed to Payment
               </button>
             </div>
           </div>

@@ -1,50 +1,198 @@
 import { useEffect, useState } from "react";
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  orderBy,
-} from "firebase/firestore";
-import { db } from "../../lib/firebase";
 import { api } from "../../lib/api";
 import { AdminLayout } from "../../components/layout/AdminLayout";
 import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
+import { TextInput } from "../../components/ui/FormField";
 import { useToast } from "../../components/ui/Toast";
 
+const EMPTY_FORM = {
+  provider: "",
+  accountName: "",
+  accountNumber: "",
+  isActive: true,
+  imageBase64: null,
+  mimeType: null,
+  preview: "",
+};
+
+function btnStyle(variant) {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "7px 12px",
+    borderRadius: "6px",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    border: "none",
+    transition: "all 0.18s",
+    fontFamily: "Inter,sans-serif",
+  };
+
+  if (variant === "danger") return { ...base, background: "#E05252", color: "#fff" };
+  if (variant === "ghost")
+    return {
+      ...base,
+      background: "transparent",
+      color: "#9080A8",
+      border: "1.5px solid rgba(201,168,76,0.18)",
+    };
+  return {
+    ...base,
+    background: "transparent",
+    color: "#F0E8D8",
+    border: "1.5px solid rgba(201,168,76,0.3)",
+  };
+}
+
+function readImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Please upload an image file."));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      reject(new Error("QR image must be under 5MB."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () =>
+      resolve({
+        imageBase64: reader.result.split(",")[1],
+        mimeType: file.type,
+        preview: URL.createObjectURL(file),
+      });
+    reader.onerror = () => reject(new Error("Could not read QR image."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AdminPaymentsPage() {
-  const [proofs, setProofs] = useState([]);
+  const [modes, setModes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
-  const [acting, setActing] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
   const { showToast, ToastContainer } = useToast();
 
-  useEffect(() => {
-    const q = query(
-      collection(db, "payment_proofs"),
-      where("verifiedStatus", "==", "pending"),
-      orderBy("createdAt", "asc"),
-    );
-    return onSnapshot(q, (snap) => {
-      setProofs(snap.docs.map((d) => ({ proofId: d.id, ...d.data() })));
-      setLoading(false);
-    });
-  }, []);
-
-  async function handleAction(action) {
-    setActing(true);
+  async function loadModes() {
+    setLoading(true);
     try {
-      await api.verifyPayment(selected.proofId, action);
-      showToast(
-        `Payment ${action}.`,
-        action === "verified" ? "success" : "error",
-      );
-      setSelected(null);
+      setModes(await api.getAdminPaymentModes());
     } catch (err) {
       showToast(err.message, "error");
     } finally {
-      setActing(false);
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadModes();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (form.preview?.startsWith("blob:")) URL.revokeObjectURL(form.preview);
+    };
+  }, [form.preview]);
+
+  function openCreate() {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setModalOpen(true);
+  }
+
+  function openEdit(mode) {
+    setEditing(mode);
+    setForm({
+      provider: mode.provider || "",
+      accountName: mode.accountName || "",
+      accountNumber: mode.accountNumber || "",
+      isActive: mode.isActive !== false,
+      imageBase64: null,
+      mimeType: null,
+      preview: mode.qrImageUrl || "",
+    });
+    setModalOpen(true);
+  }
+
+  async function handleQrChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const image = await readImage(file);
+      setForm((prev) => {
+        if (prev.preview?.startsWith("blob:")) URL.revokeObjectURL(prev.preview);
+        return { ...prev, ...image };
+      });
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  }
+
+  async function handleSave() {
+    if (!form.provider.trim() || !form.accountNumber.trim()) {
+      showToast("Provider and account number are required.", "error");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        provider: form.provider.trim(),
+        accountName: form.accountName.trim(),
+        accountNumber: form.accountNumber.trim(),
+        isActive: form.isActive,
+        ...(form.imageBase64 && {
+          imageBase64: form.imageBase64,
+          mimeType: form.mimeType,
+        }),
+      };
+
+      editing
+        ? await api.updatePaymentMode(editing.modeId, payload)
+        : await api.createPaymentMode(payload);
+
+      showToast(
+        editing ? "Payment mode updated." : "Payment mode added.",
+        "success",
+      );
+      setModalOpen(false);
+      setForm(EMPTY_FORM);
+      loadModes();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleToggle(mode) {
+    try {
+      await api.updatePaymentMode(mode.modeId, { isActive: !mode.isActive });
+      showToast(
+        `Payment mode ${mode.isActive ? "deactivated" : "activated"}.`,
+        "success",
+      );
+      loadModes();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  }
+
+  async function handleDelete(mode) {
+    if (!confirm(`Delete ${mode.provider} payment mode?`)) return;
+    try {
+      await api.deletePaymentMode(mode.modeId);
+      showToast("Payment mode deleted.", "success");
+      loadModes();
+    } catch (err) {
+      showToast(err.message, "error");
     }
   }
 
@@ -52,159 +200,214 @@ export default function AdminPaymentsPage() {
     <AdminLayout>
       <ToastContainer />
 
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
             style={{ color: "#E8C96D" }}
           >
-            Payments
+            Payment Modes
           </h2>
           <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
-            Review pending payment evidence
+            Manage the payment options shown to customers
           </p>
         </div>
-        <span
-          className="text-[0.75rem] font-bold px-3 py-1 rounded-full"
-          style={{
-            background: "rgba(232,169,76,0.12)",
-            color: "#E8A94C",
-            border: "1px solid rgba(232,169,76,0.3)",
-          }}
-        >
-          {proofs.length} pending
-        </span>
+        <button onClick={openCreate} className="btn-primary">
+          + Add Payment Mode
+        </button>
       </div>
 
       {loading ? (
         <Spinner className="py-20" />
-      ) : proofs.length === 0 ? (
-        <div className="text-center py-20" style={{ color: "#9080A8" }}>
-          <div className="text-4xl mb-3 opacity-40">✅</div>
-          <p className="text-[0.86rem]">No pending payment proofs.</p>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {proofs.map((proof) => (
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+          {modes.map((mode) => (
             <div
-              key={proof.proofId}
-              className="flex flex-col overflow-hidden rounded-xl cursor-pointer transition-all duration-200"
+              key={mode.modeId}
+              className="flex flex-col overflow-hidden rounded-xl"
               style={{
                 background: "#1E1235",
                 border: "1px solid rgba(201,168,76,0.18)",
                 boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
               }}
-              onClick={() => setSelected(proof)}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.45)";
-                e.currentTarget.style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.35)";
-                e.currentTarget.style.transform = "translateY(0)";
-              }}
             >
-              {/* QR-style mock / image */}
               <div
-                className="h-36 flex items-center justify-center"
+                className="aspect-square flex items-center justify-center relative"
                 style={{ background: "#261748" }}
               >
-                {proof.imageUrl ? (
+                {mode.qrImageUrl ? (
                   <img
-                    src={proof.imageUrl}
-                    alt="Payment proof"
-                    className="w-full h-full object-cover"
+                    src={mode.qrImageUrl}
+                    alt={`${mode.provider} QR code`}
+                    className="w-full h-full object-contain p-3"
                   />
                 ) : (
-                  <div
-                    className="w-16 h-16 rounded-lg"
-                    style={{
-                      background:
-                        "repeating-conic-gradient(rgba(201,168,76,0.6) 0% 25%, #261748 0% 50%) 0 0/8px 8px",
-                      border: "2px solid rgba(201,168,76,0.3)",
-                    }}
-                  />
+                  <span className="text-[0.75rem]" style={{ color: "#9080A8" }}>
+                    No QR
+                  </span>
                 )}
+                <span
+                  className="absolute top-2 right-2 text-[0.64rem] font-bold px-2 py-0.5 rounded-full"
+                  style={
+                    mode.isActive
+                      ? {
+                          background: "rgba(61,189,135,0.15)",
+                          color: "#3DBD87",
+                          border: "1px solid rgba(61,189,135,0.3)",
+                        }
+                      : {
+                          background: "rgba(255,255,255,0.05)",
+                          color: "#9080A8",
+                          border: "1px solid rgba(201,168,76,0.09)",
+                        }
+                  }
+                >
+                  {mode.isActive ? "Active" : "Inactive"}
+                </span>
               </div>
-              <div className="p-4">
-                <p
-                  className="font-bold text-[0.87rem] mb-1"
+
+              <div className="flex flex-col flex-1 p-3 md:p-4">
+                <div
+                  className="font-bold text-[0.84rem] md:text-[0.9rem] mb-1 truncate"
+                  style={{ color: "#F0E8D8" }}
+                >
+                  {mode.provider}
+                </div>
+                {mode.accountName && (
+                  <div
+                    className="text-[0.7rem] truncate"
+                    style={{ color: "#9080A8" }}
+                  >
+                    {mode.accountName}
+                  </div>
+                )}
+                <div
+                  className="text-[0.72rem] break-all mt-1"
                   style={{ color: "#C9A84C" }}
                 >
-                  Ref: {proof.refNumber}
-                </p>
-                <p className="text-[0.73rem]" style={{ color: "#9080A8" }}>
-                  Order: {proof.orderId}
-                </p>
-                <button className="btn-primary w-full mt-3 text-[0.78rem]">
-                  Review
+                  {mode.accountNumber}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-3 md:px-4 pb-3 md:pb-4">
+                <button style={btnStyle("outline")} onClick={() => openEdit(mode)}>
+                  Edit
+                </button>
+                <button style={btnStyle("ghost")} onClick={() => handleToggle(mode)}>
+                  {mode.isActive ? "Deactivate" : "Activate"}
+                </button>
+                <button style={btnStyle("danger")} onClick={() => handleDelete(mode)}>
+                  Delete
                 </button>
               </div>
             </div>
           ))}
+
+          {modes.length === 0 && (
+            <div
+              className="col-span-full text-center py-20"
+              style={{ color: "#9080A8" }}
+            >
+              <p className="text-[0.86rem]">No payment modes yet.</p>
+            </div>
+          )}
         </div>
       )}
 
       <Modal
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title="Review Payment"
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? "Edit Payment Mode" : "Add Payment Mode"}
       >
-        {selected && (
-          <div>
-            {selected.imageUrl ? (
+        <TextInput
+          label="Bank or Service Provider"
+          value={form.provider}
+          onChange={(e) => setForm({ ...form, provider: e.target.value })}
+          placeholder="GCash, Maya, BPI"
+        />
+        <TextInput
+          label="Account Name"
+          value={form.accountName}
+          onChange={(e) => setForm({ ...form, accountName: e.target.value })}
+          placeholder="The Hidden Oven"
+        />
+        <TextInput
+          label="Account Number"
+          value={form.accountNumber}
+          onChange={(e) => setForm({ ...form, accountNumber: e.target.value })}
+          placeholder="09XXXXXXXXX or bank account number"
+        />
+
+        <div className="mb-4">
+          <label className="label">QR Code</label>
+          <div
+            className="rounded-lg p-3"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1.5px solid rgba(201,168,76,0.18)",
+            }}
+          >
+            {form.preview && (
               <img
-                src={selected.imageUrl}
-                alt="Payment screenshot"
-                className="w-full rounded-xl mb-4 object-contain max-h-72"
+                src={form.preview}
+                alt="QR preview"
+                className="w-32 h-32 object-contain rounded-lg mb-3"
                 style={{ background: "#261748" }}
               />
-            ) : (
-              <div
-                className="w-full h-40 rounded-xl mb-4 flex items-center justify-center"
-                style={{ background: "#261748" }}
-              >
-                <div
-                  className="w-20 h-20 rounded-lg"
-                  style={{
-                    background:
-                      "repeating-conic-gradient(rgba(201,168,76,0.6) 0% 25%, #261748 0% 50%) 0 0/8px 8px",
-                    border: "2px solid rgba(201,168,76,0.3)",
-                  }}
-                />
-              </div>
             )}
-            <div className="space-y-2 mb-5 text-[0.82rem]">
-              {[
-                ["Reference No.", selected.refNumber, "#C9A84C"],
-                ["Order ID", selected.orderId, "#F0E8D8"],
-              ].map(([l, v, c]) => (
-                <div key={l} className="flex justify-between">
-                  <span style={{ color: "#9080A8" }}>{l}</span>
-                  <span className="font-semibold" style={{ color: c }}>
-                    {v}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleAction("verified")}
-                disabled={acting}
-                className="btn-primary flex-1"
-              >
-                {acting ? "…" : "✓ Verify"}
-              </button>
-              <button
-                onClick={() => handleAction("rejected")}
-                disabled={acting}
-                className="btn-danger flex-1"
-              >
-                {acting ? "…" : "✗ Reject"}
-              </button>
-            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleQrChange}
+              className="text-[0.82rem] w-full"
+              style={{ color: "#9080A8" }}
+            />
           </div>
-        )}
+        </div>
+
+        <div className="flex items-center gap-3 mb-5">
+          <label className="relative w-9 h-5 flex-shrink-0 cursor-pointer">
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={form.isActive}
+              onChange={(e) =>
+                setForm({ ...form, isActive: e.target.checked })
+              }
+            />
+            <div
+              className="w-9 h-5 rounded-full transition-colors duration-200"
+              style={{ background: form.isActive ? "#3DBD87" : "#5A4870" }}
+            >
+              <div
+                className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                style={{
+                  transform: form.isActive
+                    ? "translateX(18px)"
+                    : "translateX(2px)",
+                }}
+              />
+            </div>
+          </label>
+          <span
+            className="text-[0.83rem] font-semibold"
+            style={{ color: "#F0E8D8" }}
+          >
+            Active and visible to customers
+          </span>
+        </div>
+
+        <div
+          className="flex gap-3 justify-end pt-2"
+          style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
+        >
+          <button onClick={() => setModalOpen(false)} className="btn-secondary">
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary">
+            {saving ? "Saving..." : "Save Payment Mode"}
+          </button>
+        </div>
       </Modal>
     </AdminLayout>
   );

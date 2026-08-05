@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { CustomerLayout } from "../../components/layout/CustomerLayout";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -18,24 +16,34 @@ const STATUS_STEPS = [
 
 export default function TrackPage() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const direct = params.get("direct") === "true";
   const [form, setForm] = useState({
     orderNo: params.get("orderNo") || "",
     contactNumber: "",
     customerName: "",
   });
   const [order, setOrder] = useState(null);
-  const [orderId, setOrderId] = useState(null);
+  const [trackingOrderNo, setTrackingOrderNo] = useState(
+    params.get("orderNo") || "",
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Live listener once we have the orderId
   useEffect(() => {
-    if (!orderId) return;
-    const unsub = onSnapshot(doc(db, "orders", orderId), (snap) => {
-      if (snap.exists()) setOrder({ orderId: snap.id, ...snap.data() });
-    });
-    return unsub;
-  }, [orderId]);
+    if (!trackingOrderNo) return undefined;
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const freshOrder = await api.trackOrder({ orderNo: trackingOrderNo });
+        setOrder(freshOrder);
+      } catch {
+        window.clearInterval(intervalId);
+      }
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [trackingOrderNo]);
 
   // Auto-search if orderNo in URL
   useEffect(() => {
@@ -55,10 +63,11 @@ export default function TrackPage() {
       const result = await api.trackOrder(q);
       const found = Array.isArray(result) ? result[0] : result;
       setOrder(found);
-      setOrderId(found.orderId);
+      setTrackingOrderNo(found.orderNo || "");
     } catch (err) {
       setError(err.message);
       setOrder(null);
+      setTrackingOrderNo("");
     } finally {
       setLoading(false);
     }
@@ -86,6 +95,7 @@ export default function TrackPage() {
         </h1>
 
         {/* ── Search form ── */}
+        {!direct && (
         <div style={surfaceStyle} className="p-5 mb-5">
           <h2
             className="font-semibold text-[0.85rem] mb-4"
@@ -158,6 +168,7 @@ export default function TrackPage() {
             {loading ? "Searching…" : "Track Order"}
           </button>
         </div>
+        )}
 
         {/* ── Result ── */}
         {loading && <Spinner className="py-10" />}
@@ -241,6 +252,14 @@ export default function TrackPage() {
               )}
             </div>
           </div>
+        )}
+        {direct && order && (
+          <button
+            className="btn-secondary w-full mt-4"
+            onClick={() => navigate("/")}
+          >
+            Back to Home
+          </button>
         )}
       </div>
     </CustomerLayout>

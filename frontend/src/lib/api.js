@@ -42,6 +42,8 @@ async function request(method, path, body) {
 export const api = {
   // Orders
   placeOrder: (payload) => request("POST", "/api/orders", payload),
+  placeOrderWithPayment: (payload) =>
+    request("POST", "/api/orders/with-payment", payload),
   uploadProof: (orderId, payload) =>
     request("POST", `/api/orders/${orderId}/proof`, payload),
   trackOrder: (params) =>
@@ -70,6 +72,12 @@ export const api = {
   // Payments
   verifyPayment: (id, action) =>
     request("PATCH", `/api/payments/${id}/verify`, { action }),
+  getPaymentModes: () => request("GET", "/api/payment-modes"),
+  getAdminPaymentModes: () => request("GET", "/api/payments/modes"),
+  createPaymentMode: (payload) => request("POST", "/api/payments/modes", payload),
+  updatePaymentMode: (id, payload) =>
+    request("PUT", `/api/payments/modes/${id}`, payload),
+  deletePaymentMode: (id) => request("DELETE", `/api/payments/modes/${id}`),
 
   // Pickup Times (admin)
   getPickupConfigs: () => request("GET", "/api/pickup-times/configs"),
