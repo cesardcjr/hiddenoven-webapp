@@ -48,8 +48,8 @@ export const api = {
     request("POST", `/api/orders/${orderId}/proof`, payload),
   trackOrder: (params) =>
     request("GET", `/api/orders/track?${new URLSearchParams(params)}`),
-  updateStatus: (orderId, status) =>
-    request("PATCH", `/api/orders/${orderId}/status`, { status }),
+  updateStatus: (orderId, status, metadata = {}) =>
+    request("PATCH", `/api/orders/${orderId}/status`, { status, ...metadata }),
 
   // Dashboard & Reports
   getDashboard: () => request("GET", "/api/dashboard/summary"),

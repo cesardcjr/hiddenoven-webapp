@@ -1,6 +1,6 @@
 const express = require("express");
 const { FieldValue } = require("firebase-admin/firestore");
-const { db, writeAuditLog } = require("../utils/db");
+const { db, writeAuditLog, getPHTDateString } = require("../utils/db");
 const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -65,7 +65,26 @@ router.get("/configs", onlyAdmin, async (req, res, next) => {
       .collection("pickup_time_configs")
       .orderBy("startMinutes", "asc")
       .get();
-    const configs = snap.docs.map((d) => ({ configId: d.id, ...d.data() }));
+    const today = getPHTDateString();
+    const counterSnap = await db
+      .collection("pickup_slot_counters")
+      .where("pickupDate", "==", today)
+      .get();
+    const counts = {};
+    counterSnap.docs.forEach((doc) => {
+      const data = doc.data();
+      if (data.pickupConfigId) counts[data.pickupConfigId] = data.activeCount || 0;
+    });
+    const configs = snap.docs.map((d) => {
+      const data = d.data();
+      const bookedToday = counts[d.id] || 0;
+      return {
+        configId: d.id,
+        ...data,
+        bookedToday,
+        remainingToday: Math.max(0, (data.maxOrders || 0) - bookedToday),
+      };
+    });
     res.json(configs);
   } catch (err) {
     next(err);

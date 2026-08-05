@@ -255,7 +255,7 @@ export default function AdminPickupTimesPage() {
           >
             <thead>
               <tr>
-                {["Time Window", "Max Orders / Day", "Status", "Actions"].map(
+                {["Time Window", "Remaining Slots Today", "Status", "Actions"].map(
                   (h) => (
                     <th
                       key={h}
@@ -302,16 +302,19 @@ export default function AdminPickupTimesPage() {
                     </span>
                   </td>
 
-                  {/* Max orders */}
+                  {/* Remaining slots */}
                   <td
                     className="px-4 py-3 font-semibold"
                     style={{
                       background: "#1E1235",
-                      color: "#F0E8D8",
+                      color: cfg.remainingToday <= 0 ? "#E05252" : "#F0E8D8",
                       verticalAlign: "middle",
                     }}
                   >
-                    {cfg.maxOrders} orders
+                    {cfg.remainingToday ?? cfg.maxOrders} / {cfg.maxOrders} left
+                    <div className="text-[0.68rem] font-normal" style={{ color: "#9080A8" }}>
+                      {cfg.bookedToday || 0} booked today
+                    </div>
                   </td>
 
                   {/* Status badge */}

@@ -56,6 +56,7 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
     const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
     const productCounts = {};
+    const qtyByOrder = {};
 
     for (const orderIds of chunkArray(
       orders.map((order) => order.id),
@@ -67,9 +68,10 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
         .get();
 
       for (const item of itemsSnap.docs) {
-        const { productId, qty, lineTotal } = item.data();
+        const { orderId, productId, productName, qty, lineTotal } = item.data();
+        qtyByOrder[orderId] = (qtyByOrder[orderId] || 0) + qty;
         if (!productCounts[productId]) {
-          productCounts[productId] = { qty: 0, revenue: 0 };
+          productCounts[productId] = { productName, qty: 0, revenue: 0 };
         }
         productCounts[productId].qty += qty;
         productCounts[productId].revenue += lineTotal;
@@ -82,6 +84,23 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
       .slice(0, 10);
 
     const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const transactions = orders
+      .map((order) => ({
+        orderId: order.id,
+        orderNo: order.orderNo,
+        customerName: order.customerName,
+        contactNumber: order.contactNumber,
+        orderDate: order.createdAt,
+        paidAt: order.paidAt || null,
+        pickedUpAt: order.pickedUpAt || null,
+        total: order.total || 0,
+        totalQty: qtyByOrder[order.id] || 0,
+      }))
+      .sort((a, b) => {
+        const aTime = a.orderDate?.toMillis?.() || 0;
+        const bTime = b.orderDate?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
 
     res.json({
       from,
@@ -89,6 +108,7 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
       orderCount: orders.length,
       totalRevenue,
       topProducts,
+      transactions,
     });
   } catch (err) {
     next(err);

@@ -4,13 +4,12 @@ import { api } from "../../lib/api";
 import { useCart } from "../../context/CartContext";
 import { CustomerLayout } from "../../components/layout/CustomerLayout";
 import { TextInput } from "../../components/ui/FormField";
-import { useToast } from "../../components/ui/Toast";
 import { Spinner } from "../../components/ui/Spinner";
+import { getDailyStockRemaining } from "../../lib/date";
 
 export default function CartPage() {
   const { items, total, updateQty, removeItem, clearCart } = useCart();
   const navigate = useNavigate();
-  const { showToast, ToastContainer } = useToast();
 
   const [clearConfirm, setClearConfirm] = useState(false);
 
@@ -57,6 +56,13 @@ export default function CartPage() {
       e.contactNumber = "Enter a valid PH mobile (09XXXXXXXXX).";
     if (!form.pickupDate) e.pickupDate = "Please select a pickup date.";
     if (!form.pickupConfigId) e.pickupConfigId = "Please select a pickup time.";
+    for (const item of items) {
+      const remaining = getDailyStockRemaining(item);
+      if (remaining !== null && item.qty > remaining) {
+        e.form = `${item.name} only has ${remaining} left in stock today.`;
+        break;
+      }
+    }
     return e;
   }
 
@@ -67,7 +73,7 @@ export default function CartPage() {
       return;
     }
     if (items.length === 0) {
-      showToast("Your cart is empty.", "error");
+      setErrors({ form: "Your cart is empty." });
       return;
     }
 
@@ -90,6 +96,18 @@ export default function CartPage() {
     };
     sessionStorage.setItem("checkout_draft", JSON.stringify(payload));
     navigate("/payment", { state: { checkoutDraft: payload } });
+  }
+
+  function handleQtyChange(item, nextQty) {
+    const remaining = getDailyStockRemaining(item);
+    if (remaining !== null && nextQty > remaining) {
+      setErrors({
+        form: `${item.name} only has ${remaining} left in stock today.`,
+      });
+      return;
+    }
+    setErrors((prev) => ({ ...prev, form: "" }));
+    updateQty(item.productId, nextQty);
   }
 
   function formatDateLabel(d) {
@@ -125,6 +143,13 @@ export default function CartPage() {
     colorScheme: "dark",
   };
 
+  const pickupSelectStyle = {
+    ...inputStyle,
+    background: "#261748",
+    color: "#E8C96D",
+    border: "1.5px solid rgba(201,168,76,0.35)",
+  };
+
   const labelStyle = {
     display: "block",
     fontSize: "0.69rem",
@@ -143,8 +168,6 @@ export default function CartPage() {
 
   return (
     <CustomerLayout>
-      <ToastContainer />
-
       {/* ── Page heading with Clear Cart ── */}
       <div className="flex items-center justify-between mb-6">
         <h1
@@ -211,7 +234,10 @@ export default function CartPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* ── Cart items ── */}
           <div className="lg:col-span-2 space-y-3">
-            {items.map((item) => (
+            {items.map((item) => {
+              const remaining = getDailyStockRemaining(item);
+              const atLimit = remaining !== null && item.qty >= remaining;
+              return (
               <div
                 key={item.productId}
                 className="flex items-center gap-4 px-5 py-4 rounded-card"
@@ -235,7 +261,7 @@ export default function CartPage() {
                 {/* Qty stepper */}
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => updateQty(item.productId, item.qty - 1)}
+                    onClick={() => handleQtyChange(item, item.qty - 1)}
                     className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold"
                     style={{
                       background: "rgba(201,168,76,0.12)",
@@ -252,12 +278,14 @@ export default function CartPage() {
                     {item.qty}
                   </span>
                   <button
-                    onClick={() => updateQty(item.productId, item.qty + 1)}
+                    onClick={() => handleQtyChange(item, item.qty + 1)}
+                    disabled={atLimit}
                     className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold"
                     style={{
                       background: "rgba(201,168,76,0.12)",
-                      color: "#C9A84C",
+                      color: atLimit ? "#5A4870" : "#C9A84C",
                       border: "1px solid rgba(201,168,76,0.2)",
+                      cursor: atLimit ? "not-allowed" : "pointer",
                     }}
                   >
                     +
@@ -284,8 +312,13 @@ export default function CartPage() {
                 >
                   Remove
                 </button>
+                {remaining !== null && (
+                  <p className="text-[0.7rem]" style={{ color: atLimit ? "#E05252" : "#9080A8" }}>
+                    Stock left today: {Math.max(0, remaining - item.qty)}
+                  </p>
+                )}
               </div>
-            ))}
+            );})}
             <div
               className="flex justify-between items-center px-5 py-4 rounded-card"
               style={surfaceStyle}
@@ -415,7 +448,7 @@ export default function CartPage() {
                     onChange={(e) =>
                       setForm({ ...form, pickupConfigId: e.target.value })
                     }
-                    style={inputStyle}
+                    style={pickupSelectStyle}
                   >
                     <option value="">Select pickup time</option>
                     {slots
@@ -478,6 +511,8 @@ export default function CartPage() {
                   ₱{total.toFixed(2)}
                 </span>
               </div>
+
+              {errors.form && <p style={errorStyle}>{errors.form}</p>}
 
               <button
                 onClick={handleCheckout}

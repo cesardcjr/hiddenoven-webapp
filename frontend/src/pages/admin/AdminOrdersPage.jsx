@@ -1,74 +1,52 @@
 import { useEffect, useState } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { api } from "../../lib/api";
 import { AdminLayout } from "../../components/layout/AdminLayout";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
-import { useToast } from "../../components/ui/Toast";
 
-const ALL_TRANSITIONS = {
-  NEW: [
-    { label: "Accept", to: "PAYMENT_REVIEW", style: "primary" },
-    { label: "Cancel", to: "CANCELLED", style: "ghost" },
-  ],
-  PAYMENT_REVIEW: [
-    { label: "Confirm Payment", to: "PREPARING", style: "success" },
-    { label: "Reject Payment", to: "PAYMENT_REJECTED", style: "danger" },
-    { label: "Cancel", to: "CANCELLED", style: "ghost" },
-  ],
-  PAYMENT_REJECTED: [
-    { label: "Re-open for Payment", to: "PAYMENT_REVIEW", style: "primary" },
-    { label: "Cancel", to: "CANCELLED", style: "ghost" },
-  ],
-  PREPARING: [
-    { label: "Mark Ready", to: "READY_FOR_PICKUP", style: "success" },
-    { label: "Cancel", to: "CANCELLED", style: "ghost" },
-  ],
-  READY_FOR_PICKUP: [
-    { label: "Complete Pickup", to: "COMPLETED", style: "success" },
-  ],
-};
+function formatDateTime(value) {
+  if (!value) return "—";
+  const date = value.toDate ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-PH");
+}
 
-function btnStyle(variant) {
-  const base = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "7px 14px",
-    borderRadius: "6px",
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    border: "none",
-    transition: "all 0.18s",
-    whiteSpace: "nowrap",
-    fontFamily: "Inter,sans-serif",
-  };
-  if (variant === "primary")
-    return { ...base, background: "#C9A84C", color: "#1A0F2E" };
-  if (variant === "success")
-    return { ...base, background: "#3DBD87", color: "#fff" };
-  if (variant === "danger")
-    return { ...base, background: "#E05252", color: "#fff" };
-  if (variant === "ghost")
-    return {
-      ...base,
-      background: "transparent",
-      color: "#9080A8",
-      border: "1.5px solid rgba(201,168,76,0.18)",
-    };
-  return base;
+function money(value) {
+  return `₱${(Number(value) || 0).toFixed(2)}`;
+}
+
+function DetailTile({ label, value, highlight = false }) {
+  return (
+    <div
+      className="rounded-lg p-3"
+      style={{
+        background: "#261748",
+        border: "1px solid rgba(201,168,76,0.14)",
+      }}
+    >
+      <p
+        className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-1"
+        style={{ color: "#9080A8" }}
+      >
+        {label}
+      </p>
+      <p
+        className="font-semibold"
+        style={{ color: highlight ? "#C9A84C" : "#F0E8D8" }}
+      >
+        {value || "—"}
+      </p>
+    </div>
+  );
 }
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [acting, setActing] = useState(false);
   const [search, setSearch] = useState("");
-  const { showToast, ToastContainer } = useToast();
 
   useEffect(() => {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
@@ -78,24 +56,15 @@ export default function AdminOrdersPage() {
     });
   }, []);
 
-  async function handleTransition(orderId, toStatus) {
-    setActing(true);
-    try {
-      await api.updateStatus(orderId, toStatus);
-      showToast(`Status updated to "${toStatus}".`, "success");
-      setSelected(null);
-    } catch (err) {
-      showToast(err.message, "error");
-    } finally {
-      setActing(false);
-    }
-  }
-
-  const filtered = orders.filter(
-    (o) =>
-      o.orderNo?.toLowerCase().includes(search.toLowerCase()) ||
-      o.customerName?.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = orders.filter((o) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      o.orderNo?.toLowerCase().includes(term) ||
+      o.customerName?.toLowerCase().includes(term) ||
+      o.contactNumber?.includes(term)
+    );
+  });
 
   const inputStyle = {
     background: "rgba(255,255,255,0.05)",
@@ -112,8 +81,6 @@ export default function AdminOrdersPage() {
 
   return (
     <AdminLayout>
-      <ToastContainer />
-
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div>
           <h2
@@ -153,10 +120,7 @@ export default function AdminOrdersPage() {
           className="overflow-x-auto rounded-xl"
           style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}
         >
-          <table
-            className="w-full border-collapse"
-            style={{ fontSize: "0.82rem" }}
-          >
+          <table className="w-full border-collapse" style={{ fontSize: "0.82rem" }}>
             <thead>
               <tr>
                 {[
@@ -197,98 +161,40 @@ export default function AdminOrdersPage() {
                     cursor: "pointer",
                   }}
                   onClick={() => setSelected(o)}
-                  onMouseEnter={(e) =>
-                    Array.from(e.currentTarget.cells).forEach(
-                      (td) => (td.style.background = "rgba(201,168,76,0.05)"),
-                    )
-                  }
-                  onMouseLeave={(e) =>
-                    Array.from(e.currentTarget.cells).forEach(
-                      (td) => (td.style.background = "#1E1235"),
-                    )
-                  }
                 >
-                  <td
-                    className="px-3 py-3 font-bold"
-                    style={{
-                      background: "#1E1235",
-                      color: "#C9A84C",
-                      verticalAlign: "middle",
-                    }}
-                  >
+                  <td className="px-3 py-3 font-bold" style={{ background: "#1E1235", color: "#C9A84C" }}>
                     {o.orderNo}
                   </td>
-                  <td
-                    className="px-3 py-3 font-semibold"
-                    style={{
-                      background: "#1E1235",
-                      color: "#F0E8D8",
-                      verticalAlign: "middle",
-                    }}
-                  >
+                  <td className="px-3 py-3 font-semibold" style={{ background: "#1E1235", color: "#F0E8D8" }}>
                     {o.customerName}
                   </td>
-                  <td
-                    className="hidden sm:table-cell px-3 py-3"
-                    style={{
-                      background: "#1E1235",
-                      color: "#9080A8",
-                      verticalAlign: "middle",
-                    }}
-                  >
+                  <td className="hidden sm:table-cell px-3 py-3" style={{ background: "#1E1235", color: "#9080A8" }}>
                     {o.contactNumber}
                   </td>
-                  <td
-                    className="px-3 py-3 font-bold"
-                    style={{
-                      background: "#1E1235",
-                      color: "#E8C96D",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    ₱{o.total?.toFixed(2)}
+                  <td className="px-3 py-3 font-bold" style={{ background: "#1E1235", color: "#E8C96D" }}>
+                    {money(o.total)}
                   </td>
-                  <td
-                    className="px-3 py-3"
-                    style={{ background: "#1E1235", verticalAlign: "middle" }}
-                  >
+                  <td className="px-3 py-3" style={{ background: "#1E1235" }}>
                     <StatusBadge status={o.status} />
                   </td>
-                  <td
-                    className="hidden sm:table-cell px-3 py-3 text-[0.73rem] whitespace-nowrap"
-                    style={{
-                      background: "#1E1235",
-                      color: "#9080A8",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    {o.createdAt?.toDate?.()?.toLocaleDateString("en-PH") ??
-                      "—"}
+                  <td className="hidden sm:table-cell px-3 py-3 text-[0.73rem] whitespace-nowrap" style={{ background: "#1E1235", color: "#9080A8" }}>
+                    {formatDateTime(o.createdAt)}
                   </td>
-                  <td
-                    className="hidden sm:table-cell px-3 py-3"
-                    style={{ background: "#1E1235", verticalAlign: "middle" }}
-                  >
+                  <td className="hidden sm:table-cell px-3 py-3" style={{ background: "#1E1235" }}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelected(o);
                       }}
-                      className="text-[0.75rem] font-semibold transition-colors"
+                      className="text-[0.75rem] font-semibold"
                       style={{
                         background: "none",
                         border: "none",
                         cursor: "pointer",
                         color: "#C9A84C",
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.color = "#E8C96D")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.color = "#C9A84C")
-                      }
                     >
-                      Manage
+                      View
                     </button>
                   </td>
                 </tr>
@@ -296,10 +202,7 @@ export default function AdminOrdersPage() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div
-              className="text-center py-12"
-              style={{ color: "#9080A8", fontSize: "0.86rem" }}
-            >
+            <div className="text-center py-12" style={{ color: "#9080A8" }}>
               No orders found.
             </div>
           )}
@@ -313,76 +216,48 @@ export default function AdminOrdersPage() {
       >
         {selected && (
           <div>
-            <div className="grid grid-cols-2 gap-3 mb-5 text-[0.82rem]">
-              {[
-                ["Customer", selected.customerName],
-                ["Contact", selected.contactNumber],
-                ["Total", `₱${selected.total?.toFixed(2)}`],
-                ["Pickup Slot", selected.pickupSlotId || "—"],
-              ].map(([l, v]) => (
-                <div key={l}>
-                  <p
-                    className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-1"
-                    style={{ color: "#9080A8" }}
-                  >
-                    {l}
-                  </p>
-                  <p
-                    className="font-semibold"
-                    style={{ color: l === "Total" ? "#C9A84C" : "#F0E8D8" }}
-                  >
-                    {v}
-                  </p>
-                </div>
-              ))}
-              <div>
-                <p
-                  className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-1"
-                  style={{ color: "#9080A8" }}
-                >
-                  Status
-                </p>
+            <div className="mb-4">
+              <p className="text-[0.72rem] mb-2" style={{ color: "#9080A8" }}>
+                Order Details Summary
+              </p>
+              <div
+                className="flex items-center justify-between gap-3 rounded-lg p-3"
+                style={{ background: "#261748" }}
+              >
                 <StatusBadge status={selected.status} />
+                <span className="font-bold" style={{ color: "#C9A84C" }}>
+                  {money(selected.total)}
+                </span>
               </div>
             </div>
-            {ALL_TRANSITIONS[selected.status] && (
-              <div
-                className="pt-4"
-                style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
-              >
-                <p
-                  className="text-[0.65rem] font-bold uppercase tracking-[0.6px] mb-3"
-                  style={{ color: "#9080A8" }}
-                >
-                  Change Status
-                </p>
-                <div className="flex gap-2 flex-wrap">
-                  {ALL_TRANSITIONS[selected.status].map(
-                    ({ label, to, style }) => (
-                      <button
-                        key={to}
-                        disabled={acting}
-                        onClick={() => handleTransition(selected.orderId, to)}
-                        style={btnStyle(style)}
-                        onMouseEnter={(e) => {
-                          if (style === "primary")
-                            e.currentTarget.style.background = "#E8C96D";
-                          if (style === "success")
-                            e.currentTarget.style.background = "#2DA870";
-                          if (style === "danger")
-                            e.currentTarget.style.background = "#C53030";
-                        }}
-                        onMouseLeave={(e) =>
-                          Object.assign(e.currentTarget.style, btnStyle(style))
-                        }
-                      >
-                        {acting ? "…" : label}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[0.82rem]">
+              <DetailTile label="Customer" value={selected.customerName} />
+              <DetailTile label="Contact" value={selected.contactNumber} />
+              <DetailTile
+                label="Pickup"
+                value={`${selected.pickupDate || "—"}, ${selected.pickupLabel || "—"}`}
+              />
+              <DetailTile
+                label="Order Placement"
+                value={formatDateTime(selected.createdAt)}
+              />
+              <DetailTile label="Paid Date" value={formatDateTime(selected.paidAt)} />
+              <DetailTile
+                label="Picked Up Time"
+                value={formatDateTime(selected.pickedUpAt)}
+              />
+              <DetailTile label="Bank / Provider" value={selected.paymentProvider} />
+              <DetailTile
+                label="Reference Number"
+                value={selected.paymentRefNumber}
+              />
+              <DetailTile
+                label="Paid Amount"
+                value={money(selected.paymentAmount)}
+                highlight
+              />
+            </div>
           </div>
         )}
       </Modal>

@@ -9,6 +9,7 @@ const {
   getPickupCounterRef,
   isActiveBookingStatus,
   adjustPickupSlotCounter,
+  getPHTDateString,
 } = require("../utils/db");
 const {
   isValidPHMobile,
@@ -84,11 +85,13 @@ router.post("/", async (req, res, next) => {
     // Compute totals server-side
     let subtotal = 0;
     let totalQty = 0;
+    const qtyByProduct = {};
     const orderItemsData = items.map((item) => {
       const product = productMap[item.productId];
       const lineTotal = product.price * item.qty;
       subtotal += lineTotal;
       totalQty += item.qty;
+      qtyByProduct[item.productId] = (qtyByProduct[item.productId] || 0) + item.qty;
       return {
         productId: item.productId,
         productName: product.name,
@@ -109,10 +112,16 @@ router.post("/", async (req, res, next) => {
         .collection("pickup_time_configs")
         .doc(pickupConfigId);
       const counterRef = getPickupCounterRef(pickupDate, pickupConfigId);
+      const productRefs = Object.keys(qtyByProduct).map((id) =>
+        db.collection("products").doc(id),
+      );
       const [configSnap, counterSnap] = await Promise.all([
         transaction.get(configRef),
         transaction.get(counterRef),
       ]);
+      const productTxnSnaps = await Promise.all(
+        productRefs.map((ref) => transaction.get(ref)),
+      );
 
       if (!configSnap.exists || !configSnap.data().isActive) {
         const error = new Error("Invalid or inactive pickup time slot.");
@@ -144,6 +153,22 @@ router.post("/", async (req, res, next) => {
         throw error;
       }
 
+      const stockDate = getPHTDateString();
+      for (const productSnap of productTxnSnaps) {
+        const product = productSnap.data();
+        const requestedQty = qtyByProduct[productSnap.id] || 0;
+        const limit = product.dailyStockLimit || null;
+        if (!limit) continue;
+        const used = product.stockDate === stockDate ? product.dailyStockUsed || 0 : 0;
+        if (used + requestedQty > limit) {
+          const error = new Error(
+            `${product.name} only has ${Math.max(0, limit - used)} left in stock today.`,
+          );
+          error.status = 400;
+          throw error;
+        }
+      }
+
       transaction.set(orderRef, {
         orderNo,
         customerName: customerName.trim(),
@@ -154,6 +179,7 @@ router.post("/", async (req, res, next) => {
         status: initialStatus,
         subtotal,
         total: subtotal,
+        stockDate,
         createdAt: FieldValue.serverTimestamp(),
         verifiedBy: null,
       });
@@ -161,6 +187,17 @@ router.post("/", async (req, res, next) => {
       for (const item of orderItemsData) {
         const itemRef = db.collection("order_items").doc();
         transaction.set(itemRef, { orderId: orderRef.id, ...item });
+      }
+      for (const productRef of productRefs) {
+        transaction.set(
+          productRef,
+          {
+            stockDate,
+            dailyStockUsed: FieldValue.increment(qtyByProduct[productRef.id] || 0),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
       }
 
       adjustPickupSlotCounter({
@@ -190,6 +227,8 @@ router.post("/with-payment", async (req, res, next) => {
       imageBase64,
       mimeType,
       refNumber,
+      paymentAmount,
+      paymentProvider,
     } = req.body;
 
     if (
@@ -224,6 +263,15 @@ router.post("/with-payment", async (req, res, next) => {
         .status(400)
         .json({ error: "A GCash/bank reference number is required." });
     }
+    const paidAmount = Number(paymentAmount);
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+      return res.status(400).json({ error: "A valid payment amount is required." });
+    }
+    if (!paymentProvider || typeof paymentProvider !== "string") {
+      return res
+        .status(400)
+        .json({ error: "A bank or service provider is required." });
+    }
 
     const proofBuffer = Buffer.from(imageBase64, "base64");
     if (proofBuffer.length > 5 * 1024 * 1024) {
@@ -248,11 +296,13 @@ router.post("/with-payment", async (req, res, next) => {
 
     let subtotal = 0;
     let totalQty = 0;
+    const qtyByProduct = {};
     const orderItemsData = items.map((item) => {
       const product = productMap[item.productId];
       const lineTotal = product.price * item.qty;
       subtotal += lineTotal;
       totalQty += item.qty;
+      qtyByProduct[item.productId] = (qtyByProduct[item.productId] || 0) + item.qty;
       return {
         productId: item.productId,
         productName: product.name,
@@ -263,6 +313,12 @@ router.post("/with-payment", async (req, res, next) => {
     });
 
     const initialStatus = totalQty < 20 ? "PAYMENT_REVIEW" : "NEW";
+    if (paidAmount < subtotal) {
+      return res
+        .status(400)
+        .json({ error: "Payment amount must be at least the order total." });
+    }
+
     const orderNo = await generateOrderNumber();
     const orderRef = db.collection("orders").doc();
     const proofRef = db.collection("payment_proofs").doc();
@@ -277,10 +333,16 @@ router.post("/with-payment", async (req, res, next) => {
         .collection("pickup_time_configs")
         .doc(pickupConfigId);
       const counterRef = getPickupCounterRef(pickupDate, pickupConfigId);
+      const productRefs = Object.keys(qtyByProduct).map((id) =>
+        db.collection("products").doc(id),
+      );
       const [configSnap, counterSnap] = await Promise.all([
         transaction.get(configRef),
         transaction.get(counterRef),
       ]);
+      const productTxnSnaps = await Promise.all(
+        productRefs.map((ref) => transaction.get(ref)),
+      );
 
       if (!configSnap.exists || !configSnap.data().isActive) {
         const error = new Error("Invalid or inactive pickup time slot.");
@@ -312,6 +374,22 @@ router.post("/with-payment", async (req, res, next) => {
         throw error;
       }
 
+      const stockDate = getPHTDateString();
+      for (const productSnap of productTxnSnaps) {
+        const product = productSnap.data();
+        const requestedQty = qtyByProduct[productSnap.id] || 0;
+        const limit = product.dailyStockLimit || null;
+        if (!limit) continue;
+        const used = product.stockDate === stockDate ? product.dailyStockUsed || 0 : 0;
+        if (used + requestedQty > limit) {
+          const error = new Error(
+            `${product.name} only has ${Math.max(0, limit - used)} left in stock today.`,
+          );
+          error.status = 400;
+          throw error;
+        }
+      }
+
       transaction.set(orderRef, {
         orderNo,
         customerName: customerName.trim(),
@@ -322,6 +400,11 @@ router.post("/with-payment", async (req, res, next) => {
         status: initialStatus,
         subtotal,
         total: subtotal,
+        paymentProvider: paymentProvider.trim(),
+        paymentAmount: paidAmount,
+        paymentRefNumber: refNumber.trim(),
+        paidAt: FieldValue.serverTimestamp(),
+        stockDate,
         createdAt: FieldValue.serverTimestamp(),
         verifiedBy: null,
       });
@@ -330,12 +413,25 @@ router.post("/with-payment", async (req, res, next) => {
         const itemRef = db.collection("order_items").doc();
         transaction.set(itemRef, { orderId: orderRef.id, ...item });
       }
+      for (const productRef of productRefs) {
+        transaction.set(
+          productRef,
+          {
+            stockDate,
+            dailyStockUsed: FieldValue.increment(qtyByProduct[productRef.id] || 0),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
 
       transaction.set(proofRef, {
         orderId: orderRef.id,
         imageUrl,
         storagePath: fileName,
         refNumber: refNumber.trim(),
+        paymentProvider: paymentProvider.trim(),
+        amount: paidAmount,
         verifiedStatus: "pending",
         verifiedBy: null,
         createdAt: FieldValue.serverTimestamp(),
@@ -448,14 +544,17 @@ router.patch(
   async (req, res, next) => {
     try {
       const { id: orderId } = req.params;
-      const { status: toStatus } = req.body;
+      const { status: toStatus, cancellationReason = "" } = req.body;
       const actorUid = req.user.uid;
+      const actorName = req.user.email || actorUid;
 
       if (!toStatus)
         return res.status(400).json({ error: "New status is required." });
 
       const orderRef = db.collection("orders").doc(orderId);
       let fromStatus;
+      let orderNo;
+      let orderItems = [];
 
       await db.runTransaction(async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
@@ -467,6 +566,7 @@ router.patch(
 
         const order = orderSnap.data();
         fromStatus = order.status;
+        orderNo = order.orderNo || orderId;
 
         if (!isValidTransition(fromStatus, toStatus)) {
           const error = new Error(
@@ -482,6 +582,21 @@ router.patch(
         };
         if (fromStatus === "PAYMENT_REVIEW" && toStatus === "PREPARING") {
           updateData.verifiedBy = actorUid;
+          updateData.paymentVerifiedAt = FieldValue.serverTimestamp();
+        }
+        if (toStatus === "COMPLETED") {
+          updateData.pickedUpAt = FieldValue.serverTimestamp();
+          updateData.pickedUpBy = actorUid;
+        }
+        if (toStatus === "CANCELLED") {
+          if (!cancellationReason || !String(cancellationReason).trim()) {
+            const error = new Error("Cancellation reason is required.");
+            error.status = 400;
+            throw error;
+          }
+          updateData.cancelledAt = FieldValue.serverTimestamp();
+          updateData.cancelledBy = actorUid;
+          updateData.cancellationReason = String(cancellationReason).trim();
         }
 
         const counterDelta =
@@ -491,6 +606,72 @@ router.patch(
                 isActiveBookingStatus(toStatus)
               ? 1
               : 0;
+
+        let stockDelta = 0;
+        if (isActiveBookingStatus(fromStatus) && !isActiveBookingStatus(toStatus)) {
+          stockDelta = -1;
+        } else if (
+          !isActiveBookingStatus(fromStatus) &&
+          isActiveBookingStatus(toStatus)
+        ) {
+          stockDelta = 1;
+        }
+
+        if (stockDelta) {
+          const itemsSnap = await transaction.get(
+            db.collection("order_items").where("orderId", "==", orderId),
+          );
+          orderItems = itemsSnap.docs.map((d) => d.data());
+          const stockDate = order.stockDate || getPHTDateString();
+          const qtyByProduct = {};
+          orderItems.forEach((item) => {
+            qtyByProduct[item.productId] =
+              (qtyByProduct[item.productId] || 0) + (item.qty || 0);
+          });
+          const productRefs = Object.keys(qtyByProduct).map((id) =>
+            db.collection("products").doc(id),
+          );
+          const productSnaps = await Promise.all(
+            productRefs.map((ref) => transaction.get(ref)),
+          );
+          if (stockDelta > 0) {
+            for (const productSnap of productSnaps) {
+              const product = productSnap.data();
+              const limit = product.dailyStockLimit || null;
+              if (!limit) continue;
+              const used =
+                product.stockDate === stockDate ? product.dailyStockUsed || 0 : 0;
+              const requestedQty = qtyByProduct[productSnap.id] || 0;
+              if (used + requestedQty > limit) {
+                const error = new Error(
+                  `${product.name} only has ${Math.max(0, limit - used)} left in stock today.`,
+                );
+                error.status = 400;
+                throw error;
+              }
+            }
+          }
+          for (const productRef of productRefs) {
+            const matchingProduct = productSnaps.find((snap) => snap.id === productRef.id);
+            if (
+              stockDelta < 0 &&
+              matchingProduct?.data()?.stockDate !== stockDate
+            ) {
+              continue;
+            }
+            transaction.set(
+              productRef,
+              {
+                stockDate,
+                dailyStockUsed: FieldValue.increment(
+                  stockDelta * (qtyByProduct[productRef.id] || 0),
+                ),
+                updatedAt: FieldValue.serverTimestamp(),
+              },
+              { merge: true },
+            );
+          }
+        }
 
         transaction.update(orderRef, updateData);
         if (counterDelta) {
@@ -504,10 +685,16 @@ router.patch(
       });
       await writeAuditLog({
         orderId,
+        orderNo,
         actorUid,
+        actorName,
         action: "status_change",
         fromStatus,
         toStatus,
+        details:
+          toStatus === "CANCELLED"
+            ? { cancellationReason: String(cancellationReason).trim() }
+            : null,
       });
 
       res.json({ success: true, orderId, fromStatus, toStatus });

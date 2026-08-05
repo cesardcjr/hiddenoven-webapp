@@ -2,16 +2,16 @@ import { useEffect, useState, useRef } from "react";
 
 const TOAST_STYLES = {
   success: {
-    background: "rgba(61,189,135,0.12)",
-    border: "1px solid rgba(61,189,135,0.3)",
-    borderLeft: "4px solid #3DBD87",
-    color: "#3DBD87",
+    background: "#C9A84C",
+    border: "1px solid #E8C96D",
+    borderLeft: "4px solid #1A0F2E",
+    color: "#1A0F2E",
   },
   error: {
-    background: "rgba(224,82,82,0.12)",
-    border: "1px solid rgba(224,82,82,0.3)",
-    borderLeft: "4px solid #E05252",
-    color: "#E05252",
+    background: "#E05252",
+    border: "1px solid #E05252",
+    borderLeft: "4px solid #F0E8D8",
+    color: "#fff",
   },
   info: {
     background: "rgba(201,168,76,0.10)",
@@ -82,7 +82,7 @@ export function useToast() {
 
   function ToastContainer() {
     return (
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+      <div className="fixed top-6 right-6 z-50 flex flex-col gap-2">
         {toasts.map((t) => (
           <Toast
             key={t.id}

@@ -41,13 +41,25 @@ async function getPaymentProofUrl(fileName) {
 /**
  * Write an audit log entry.
  */
-async function writeAuditLog({ orderId = null, actorUid, action, fromStatus = null, toStatus = null }) {
+async function writeAuditLog({
+  orderId = null,
+  orderNo = null,
+  actorUid,
+  actorName = null,
+  action,
+  fromStatus = null,
+  toStatus = null,
+  details = null,
+}) {
   await db.collection("audit_log").add({
     orderId,
+    orderNo,
     actorUid,
+    actorName,
     action,
     fromStatus,
     toStatus,
+    details,
     timestamp: FieldValue.serverTimestamp(),
   });
 }
@@ -76,6 +88,11 @@ function getPickupCounterRef(pickupDate, pickupConfigId) {
   return db
     .collection("pickup_slot_counters")
     .doc(`${pickupDate}_${pickupConfigId}`);
+}
+
+function getPHTDateString(date = new Date()) {
+  const pht = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  return `${pht.getUTCFullYear()}-${String(pht.getUTCMonth() + 1).padStart(2, "0")}-${String(pht.getUTCDate()).padStart(2, "0")}`;
 }
 
 function isActiveBookingStatus(status) {
@@ -116,4 +133,5 @@ module.exports = {
   getPickupCounterRef,
   isActiveBookingStatus,
   adjustPickupSlotCounter,
+  getPHTDateString,
 };

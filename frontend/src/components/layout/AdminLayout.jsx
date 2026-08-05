@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import hiddenOvenLogo from "../../images/hidden-oven-logo.jpg";
 
 const NAV_SECTIONS = [
   {
@@ -147,16 +148,14 @@ export function AdminLayout({ children }) {
           className="flex items-center gap-2.5 px-4 py-5 flex-shrink-0 overflow-hidden"
           style={{ borderBottom: "1px solid rgba(201,168,76,0.12)" }}
         >
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 font-display font-bold text-sm"
+          <img
+            src={hiddenOvenLogo}
+            alt="The Hidden Oven logo"
+            className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
             style={{
-              background: "rgba(201,168,76,0.15)",
-              color: "#C9A84C",
               border: "1px solid rgba(201,168,76,0.3)",
             }}
-          >
-            HO
-          </div>
+          />
           {!effectiveCollapsed && (
             <div className="overflow-hidden whitespace-nowrap">
               <span
@@ -263,12 +262,11 @@ export function AdminLayout({ children }) {
           className="flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden"
           style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
         >
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[0.82rem] font-bold flex-shrink-0"
-            style={{ background: "#C9A84C", color: "#1A0F2E" }}
-          >
-            {initials}
-          </div>
+          <img
+            src={hiddenOvenLogo}
+            alt={`${initials} admin logo`}
+            className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+          />
           {!effectiveCollapsed && (
             <div className="overflow-hidden whitespace-nowrap flex-1">
               <div

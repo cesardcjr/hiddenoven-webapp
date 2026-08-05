@@ -12,6 +12,14 @@
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "contactNumber", "order": "ASCENDING" },
         { "fieldPath": "customerName", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
@@ -48,6 +56,14 @@
       "fields": [
         { "fieldPath": "isActive", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payment_proofs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orderId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],

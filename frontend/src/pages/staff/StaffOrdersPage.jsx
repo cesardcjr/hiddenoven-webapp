@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   collection,
-  query,
-  where,
+  getDocs,
   onSnapshot,
   orderBy,
+  query,
+  where,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { api } from "../../lib/api";
@@ -12,14 +13,17 @@ import { StaffLayout } from "../../components/layout/StaffLayout";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { useToast } from "../../components/ui/Toast";
 import { Spinner } from "../../components/ui/Spinner";
+import { Modal } from "../../components/ui/Modal";
+import { Swal } from "../../lib/swal";
 
-// ── Status machine ────────────────────────────────────────────────────────────
 const QUEUE_STATUSES = [
   "NEW",
   "PAYMENT_REVIEW",
-  "PAYMENT_REJECTED",
   "PREPARING",
   "READY_FOR_PICKUP",
+  "COMPLETED",
+  "CANCELLED",
+  "PAYMENT_REJECTED",
 ];
 
 const COLUMNS = [
@@ -30,18 +34,30 @@ const COLUMNS = [
     color: "#6B9FE8",
     icon: "💳",
   },
-  {
-    status: "PAYMENT_REJECTED",
-    label: "Payment Rejected",
-    color: "#E05252",
-    icon: "❌",
-  },
   { status: "PREPARING", label: "Preparing", color: "#A78BFA", icon: "🍞" },
   {
     status: "READY_FOR_PICKUP",
     label: "Ready for Pickup",
     color: "#3DBD87",
     icon: "✅",
+  },
+  {
+    status: "COMPLETED",
+    label: "Completed Order",
+    color: "#C9A84C",
+    icon: "✓",
+  },
+  {
+    status: "CANCELLED",
+    label: "Cancelled Order",
+    color: "#9080A8",
+    icon: "⊘",
+  },
+  {
+    status: "PAYMENT_REJECTED",
+    label: "Payment Rejected",
+    color: "#E05252",
+    icon: "✕",
   },
 ];
 
@@ -51,8 +67,6 @@ const TRANSITIONS = {
     { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
   PAYMENT_REVIEW: [
-    { label: "Verify Payment", to: "PREPARING", style: "success" },
-    { label: "Reject Payment", to: "PAYMENT_REJECTED", style: "danger" },
     { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
   PAYMENT_REJECTED: [
@@ -68,13 +82,29 @@ const TRANSITIONS = {
   ],
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function ageStr(createdAt) {
   if (!createdAt?.toDate) return "";
   const m = Math.floor((Date.now() - createdAt.toDate()) / 60000);
   if (m < 1) return "just now";
   if (m < 60) return `${m}m ago`;
   return `${Math.floor(m / 60)}h ${m % 60}m ago`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+  const date = value.toDate ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function peso(value) {
+  return `₱${(Number(value) || 0).toFixed(2)}`;
 }
 
 function btnStyle(variant) {
@@ -98,6 +128,13 @@ function btnStyle(variant) {
     return { ...base, background: "#3DBD87", color: "#fff" };
   if (variant === "danger")
     return { ...base, background: "#E05252", color: "#fff" };
+  if (variant === "outline")
+    return {
+      ...base,
+      background: "rgba(201,168,76,0.08)",
+      color: "#E8C96D",
+      border: "1.5px solid rgba(201,168,76,0.35)",
+    };
   if (variant === "ghost")
     return {
       ...base,
@@ -108,8 +145,7 @@ function btnStyle(variant) {
   return base;
 }
 
-// ── Order Card ────────────────────────────────────────────────────────────────
-function OrderCard({ order, rank, colColor, acting, onAction }) {
+function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
   const transitions = TRANSITIONS[order.status] || [];
 
   return (
@@ -126,7 +162,6 @@ function OrderCard({ order, rank, colColor, acting, onAction }) {
         boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
       }}
     >
-      {/* Card header — rank + order number + age */}
       <div
         style={{
           display: "flex",
@@ -171,7 +206,6 @@ function OrderCard({ order, rank, colColor, acting, onAction }) {
         </span>
       </div>
 
-      {/* Card body */}
       <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
         <div
           style={{
@@ -201,7 +235,7 @@ function OrderCard({ order, rank, colColor, acting, onAction }) {
               flexShrink: 0,
             }}
           >
-            ₱{(order.total || 0).toFixed(2)}
+            {peso(order.total)}
           </span>
         </div>
         <span style={{ color: "#9080A8", fontSize: "0.73rem" }}>
@@ -212,50 +246,54 @@ function OrderCard({ order, rank, colColor, acting, onAction }) {
         </span>
       </div>
 
-      {/* Action buttons */}
-      {transitions.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "6px",
-            flexWrap: "wrap",
-            paddingTop: "6px",
-            borderTop: "1px solid rgba(201,168,76,0.1)",
-          }}
-        >
-          {transitions.map((action) => (
-            <button
-              key={action.to}
-              style={btnStyle(action.style)}
-              disabled={acting}
-              onClick={() => onAction(order.orderId, action.to)}
-              onMouseEnter={(e) => {
-                if (action.style === "primary")
-                  e.currentTarget.style.background = "#E8C96D";
-                if (action.style === "success")
-                  e.currentTarget.style.background = "#2DA870";
-                if (action.style === "danger")
-                  e.currentTarget.style.background = "#C53030";
-                if (action.style === "ghost") {
-                  e.currentTarget.style.borderColor = "#9080A8";
-                  e.currentTarget.style.color = "#F0E8D8";
-                }
-              }}
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, btnStyle(action.style))
-              }
-            >
-              {acting ? "…" : action.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div
+        style={{
+          display: "flex",
+          gap: "6px",
+          flexWrap: "wrap",
+          paddingTop: "6px",
+          borderTop: "1px solid rgba(201,168,76,0.1)",
+        }}
+      >
+        <button type="button" style={btnStyle("outline")} onClick={() => onView(order)}>
+          View
+        </button>
+        {transitions.map((action) => (
+          <button
+            key={action.to}
+            type="button"
+            style={btnStyle(action.style)}
+            disabled={acting}
+            onClick={() => onAction(order.orderId, action.to)}
+          >
+            {acting ? "…" : action.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ── Column Panel ──────────────────────────────────────────────────────────────
-function ColumnPanel({ col, orders, acting, onAction }) {
+function EmptyState() {
+  return (
+    <div
+      style={{
+        gridColumn: "1 / -1",
+        textAlign: "center",
+        padding: "32px 16px",
+        color: "#5A4870",
+        fontSize: "0.78rem",
+      }}
+    >
+      <div style={{ fontSize: "1.8rem", marginBottom: "6px", opacity: 0.4 }}>
+        📭
+      </div>
+      No orders here
+    </div>
+  );
+}
+
+function ColumnPanel({ col, orders, acting, onAction, onView }) {
   return (
     <div
       style={{
@@ -268,48 +306,8 @@ function ColumnPanel({ col, orders, acting, onAction }) {
         overflow: "hidden",
       }}
     >
-      {/* Column header */}
-      <div
-        style={{
-          padding: "12px 16px",
-          borderBottom: "2px solid rgba(201,168,76,0.1)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "#0D0820",
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "1rem" }}>{col.icon}</span>
-          <span
-            style={{
-              color: col.color,
-              fontWeight: 700,
-              fontSize: "0.82rem",
-              letterSpacing: "0.2px",
-            }}
-          >
-            {col.label}
-          </span>
-        </div>
-        <span
-          style={{
-            background: col.color,
-            color: "#1A0F2E",
-            borderRadius: "20px",
-            fontSize: "0.65rem",
-            fontWeight: 800,
-            padding: "2px 8px",
-            minWidth: "22px",
-            textAlign: "center",
-          }}
-        >
-          {orders.length}
-        </span>
-      </div>
+      <PanelHeader col={col} count={orders.length} />
 
-      {/* Cards grid */}
       <div
         style={{
           padding: "14px",
@@ -322,22 +320,7 @@ function ColumnPanel({ col, orders, acting, onAction }) {
         className="staff-card-grid"
       >
         {orders.length === 0 ? (
-          <div
-            style={{
-              gridColumn: "1 / -1",
-              textAlign: "center",
-              padding: "32px 16px",
-              color: "#5A4870",
-              fontSize: "0.78rem",
-            }}
-          >
-            <div
-              style={{ fontSize: "1.8rem", marginBottom: "6px", opacity: 0.4 }}
-            >
-              📭
-            </div>
-            No orders here
-          </div>
+          <EmptyState />
         ) : (
           orders.map((order, idx) => (
             <OrderCard
@@ -347,6 +330,7 @@ function ColumnPanel({ col, orders, acting, onAction }) {
               colColor={col.color}
               acting={acting}
               onAction={onAction}
+              onView={onView}
             />
           ))
         )}
@@ -355,16 +339,299 @@ function ColumnPanel({ col, orders, acting, onAction }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+function PanelHeader({ col, count }) {
+  return (
+    <div
+      style={{
+        padding: "12px 16px",
+        borderBottom: "2px solid rgba(201,168,76,0.1)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: "#0D0820",
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <span style={{ fontSize: "1rem" }}>{col.icon}</span>
+        <span
+          style={{
+            color: col.color,
+            fontWeight: 700,
+            fontSize: "0.82rem",
+            letterSpacing: "0.2px",
+          }}
+        >
+          {col.label}
+        </span>
+      </div>
+      <span
+        style={{
+          background: col.color,
+          color: "#1A0F2E",
+          borderRadius: "20px",
+          fontSize: "0.65rem",
+          fontWeight: 800,
+          padding: "2px 8px",
+          minWidth: "22px",
+          textAlign: "center",
+        }}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function OrderTablePanel({ col, orders, onView }) {
+  return (
+    <div
+      style={{
+        background: "#120B22",
+        border: "1px solid rgba(201,168,76,0.1)",
+        borderRadius: "14px",
+        overflow: "hidden",
+      }}
+    >
+      <PanelHeader col={col} count={orders.length} />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-left text-[0.78rem]">
+          <thead style={{ background: "#0D0820", color: "#9080A8" }}>
+            <tr>
+              {["Order", "Customer", "Contact", "Pickup", "Total", "Status", ""].map(
+                (heading) => (
+                  <th key={heading} className="px-4 py-3 font-semibold">
+                    {heading}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {orders.length === 0 ? (
+              <tr>
+                <td className="px-4 py-8 text-center" colSpan={7} style={{ color: "#5A4870" }}>
+                  No orders here
+                </td>
+              </tr>
+            ) : (
+              orders.map((order) => (
+                <tr
+                  key={order.orderId}
+                  style={{ borderTop: "1px solid rgba(201,168,76,0.08)" }}
+                >
+                  <td className="px-4 py-3 font-semibold" style={{ color: "#E8C96D" }}>
+                    {order.orderNo}
+                  </td>
+                  <td className="px-4 py-3" style={{ color: "#F0E8D8" }}>
+                    {order.customerName}
+                  </td>
+                  <td className="px-4 py-3" style={{ color: "#9080A8" }}>
+                    {order.contactNumber}
+                  </td>
+                  <td className="px-4 py-3" style={{ color: "#9080A8" }}>
+                    {order.pickupDate} · {order.pickupLabel || "—"}
+                  </td>
+                  <td className="px-4 py-3 font-semibold" style={{ color: "#E8C96D" }}>
+                    {peso(order.total)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={order.status} />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button type="button" style={btnStyle("outline")} onClick={() => onView(order)}>
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: "16px",
+        padding: "8px 0",
+        borderBottom: "1px solid rgba(201,168,76,0.08)",
+      }}
+    >
+      <span style={{ color: "#9080A8", fontSize: "0.75rem" }}>{label}</span>
+      <span
+        style={{
+          color: "#F0E8D8",
+          fontWeight: 600,
+          fontSize: "0.78rem",
+          textAlign: "right",
+        }}
+      >
+        {value || "—"}
+      </span>
+    </div>
+  );
+}
+
+function OrderDetailsModal({
+  order,
+  items,
+  paymentProof,
+  loading,
+  acting,
+  onAction,
+  onClose,
+}) {
+  return (
+    <Modal
+      open={Boolean(order)}
+      onClose={onClose}
+      title={order ? `Order ${order.orderNo}` : "Order Details"}
+    >
+      {order && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+            <StatusBadge status={order.status} />
+            <span style={{ color: "#E8C96D", fontWeight: 800 }}>{peso(order.total)}</span>
+          </div>
+
+          <div>
+            <DetailRow label="Customer" value={order.customerName} />
+            <DetailRow label="Contact" value={order.contactNumber} />
+            <DetailRow label="Pickup Date" value={order.pickupDate} />
+            <DetailRow label="Pickup Time" value={order.pickupLabel} />
+            <DetailRow label="Order Placed By" value={formatDateTime(order.createdAt)} />
+            <DetailRow
+              label="Bank / Provider"
+              value={paymentProof?.paymentProvider || order.paymentProvider}
+            />
+            <DetailRow
+              label="Amount Paid"
+              value={peso(paymentProof?.amount || order.paymentAmount)}
+            />
+            <DetailRow
+              label="Reference Number"
+              value={paymentProof?.refNumber || order.paymentRefNumber}
+            />
+            <DetailRow
+              label="Payment Timestamp"
+              value={formatDateTime(paymentProof?.createdAt || order.paidAt)}
+            />
+            {order.status === "COMPLETED" && (
+              <DetailRow label="Picked Up" value={formatDateTime(order.pickedUpAt)} />
+            )}
+            {order.status === "CANCELLED" && (
+              <DetailRow
+                label="Reason for Cancellation"
+                value={order.cancellationReason}
+              />
+            )}
+          </div>
+
+          <div>
+            <h3
+              style={{
+                color: "#E8C96D",
+                fontWeight: 700,
+                fontSize: "0.86rem",
+                marginBottom: "8px",
+              }}
+            >
+              Items
+            </h3>
+            {loading ? (
+              <Spinner />
+            ) : items.length === 0 ? (
+              <p style={{ color: "#9080A8", fontSize: "0.78rem" }}>
+                No item details were found for this order.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(201,168,76,0.1)",
+                      borderRadius: "10px",
+                      padding: "10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        color: "#F0E8D8",
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>{item.name || item.productName || "Product"}</span>
+                      <span>{peso(item.lineTotal || item.subtotal || item.price * item.qty)}</span>
+                    </div>
+                    <div style={{ color: "#9080A8", fontSize: "0.72rem", marginTop: "4px" }}>
+                      Qty: {item.qty || item.quantity || 1}
+                      {item.price ? ` · ${peso(item.price)} each` : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {order.status === "PAYMENT_REVIEW" && (
+            <div
+              style={{
+                borderTop: "1px solid rgba(201,168,76,0.12)",
+                paddingTop: "14px",
+                display: "flex",
+                gap: "8px",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                disabled={acting}
+                style={btnStyle("success")}
+                onClick={() => onAction(order.orderId, "PREPARING")}
+              >
+                Verify Payment
+              </button>
+              <button
+                type="button"
+                disabled={acting}
+                style={btnStyle("danger")}
+                onClick={() => onAction(order.orderId, "PAYMENT_REJECTED")}
+              >
+                Reject Payment
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 export default function StaffOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [activeTab, setActiveTab] = useState("NEW");
   const [search, setSearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectedProof, setSelectedProof] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const { showToast, ToastContainer } = useToast();
 
-  // Firestore real-time listener — uses correct uppercase status names
   useEffect(() => {
     const q = query(
       collection(db, "orders"),
@@ -380,48 +647,132 @@ export default function StaffOrdersPage() {
       (err) => {
         console.error("Order queue listener error:", err);
         setLoading(false);
+        showToast("Unable to load staff order queue.", "error");
       },
     );
     return unsub;
   }, []);
 
+  function confirmationText(toStatus) {
+    if (toStatus === "PREPARING") return "Are you sure Payment is Fully Verified?";
+    if (toStatus === "PAYMENT_REJECTED") return "Are you sure to Reject this Payment?";
+    if (toStatus === "READY_FOR_PICKUP")
+      return "Are you sure to Mark the Order Ready for Pickup?";
+    if (toStatus === "COMPLETED") return "Are you sure this order was Picked Up?";
+    if (toStatus === "PAYMENT_REVIEW") return "Are you sure to Re-open Payment Review?";
+    if (toStatus === "CANCELLED") return "Are you to cancel this order?";
+    return "Are you sure you want to update this order?";
+  }
+
+  async function confirmAction(toStatus) {
+    if (toStatus === "CANCELLED") {
+      const result = await Swal.fire({
+        title: "Cancel Order",
+        text: "Are you to cancel this order?",
+        input: "textarea",
+        inputPlaceholder: "Enter staff reason for cancellation...",
+        showCancelButton: true,
+        confirmButtonText: "Cancel Order",
+        cancelButtonText: "Go Back",
+        confirmButtonColor: "#E05252",
+        inputValidator: (value) =>
+          value ? null : "Cancellation reason is required.",
+      });
+      return result.isConfirmed
+        ? { confirmed: true, cancellationReason: result.value }
+        : { confirmed: false };
+    }
+
+    const result = await Swal.fire({
+      title: "Confirm Action",
+      text: confirmationText(toStatus),
+      showCancelButton: true,
+      confirmButtonText: "Yes, continue",
+      cancelButtonText: "No",
+    });
+    return { confirmed: result.isConfirmed };
+  }
+
   async function handleAction(orderId, toStatus) {
+    const confirmation = await confirmAction(toStatus);
+    if (!confirmation.confirmed) return;
     setActing(true);
     try {
-      await api.updateStatus(orderId, toStatus);
-      const label =
-        COLUMNS.find((c) => c.status === toStatus)?.label || toStatus;
-      showToast(`Order moved to "${label}".`, "success");
+      await api.updateStatus(orderId, toStatus, {
+        cancellationReason: confirmation.cancellationReason,
+      });
+      setSelectedOrder(null);
     } catch (err) {
-      showToast(err.message || "Failed to update order.", "error");
+      await Swal.fire({
+        title: "Action Failed",
+        text: err.message || "Failed to update order.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#E05252",
+      });
     } finally {
       setActing(false);
     }
   }
 
-  // Filter by search
-  const filtered = orders.filter((o) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      o.orderNo?.toLowerCase().includes(q) ||
-      o.customerName?.toLowerCase().includes(q) ||
-      o.contactNumber?.includes(q)
+  async function openDetails(order) {
+    setSelectedOrder(order);
+    setSelectedItems([]);
+    setSelectedProof(null);
+    setDetailsLoading(true);
+    try {
+      const itemsQuery = query(
+        collection(db, "order_items"),
+        where("orderId", "==", order.orderId),
+      );
+      const proofsQuery = query(
+        collection(db, "payment_proofs"),
+        where("orderId", "==", order.orderId),
+        orderBy("createdAt", "desc"),
+      );
+      const [itemsSnap, proofsSnap] = await Promise.all([
+        getDocs(itemsQuery),
+        getDocs(proofsQuery),
+      ]);
+      setSelectedItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setSelectedProof(
+        proofsSnap.docs[0]
+          ? { proofId: proofsSnap.docs[0].id, ...proofsSnap.docs[0].data() }
+          : null,
+      );
+    } catch (err) {
+      console.error("Order details error:", err);
+      showToast("Unable to load order item details.", "error");
+    } finally {
+      setDetailsLoading(false);
+    }
+  }
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return orders;
+    return orders.filter(
+      (o) =>
+        o.orderNo?.toLowerCase().includes(term) ||
+        o.customerName?.toLowerCase().includes(term) ||
+        o.contactNumber?.includes(term),
     );
-  });
+  }, [orders, search]);
 
-  // Group by status — preserves FIFO (already sorted by createdAt asc)
-  const grouped = {};
-  QUEUE_STATUSES.forEach((s) => {
-    grouped[s] = [];
-  });
-  filtered.forEach((o) => {
-    if (grouped[o.status]) grouped[o.status].push(o);
-  });
+  const grouped = useMemo(() => {
+    const byStatus = Object.fromEntries(QUEUE_STATUSES.map((s) => [s, []]));
+    filtered.forEach((order) => {
+      if (byStatus[order.status]) byStatus[order.status].push(order);
+    });
+    return byStatus;
+  }, [filtered]);
 
-  const activeCol = COLUMNS.find((c) => c.status === activeTab);
-  const activeOrders = grouped[activeTab] || [];
-  const totalActive = orders.length;
+  const activeCol = COLUMNS.find((c) => c.status === activeTab) || COLUMNS[0];
+  const activeOrders = grouped[activeCol.status] || [];
+  const sidebarItems = COLUMNS.map((col) => ({
+    ...col,
+    count: grouped[col.status]?.length || 0,
+  }));
+  const isTableView = ["COMPLETED", "CANCELLED"].includes(activeCol.status);
 
   const inputStyle = {
     background: "rgba(255,255,255,0.05)",
@@ -437,16 +788,19 @@ export default function StaffOrdersPage() {
   };
 
   return (
-    <StaffLayout orderCount={totalActive}>
+    <StaffLayout
+      orderCount={orders.length}
+      statusItems={sidebarItems}
+      activeStatus={activeCol.status}
+      onStatusSelect={setActiveTab}
+    >
       <ToastContainer />
 
-      {/* Responsive grid styles injected once */}
       <style>{`
         @media (max-width: 1023px) { .staff-card-grid { grid-template-columns: repeat(3, 1fr) !important; } }
         @media (max-width: 639px)  { .staff-card-grid { grid-template-columns: repeat(2, 1fr) !important; } }
       `}</style>
 
-      {/* ── Page header ── */}
       <div
         style={{
           display: "flex",
@@ -466,15 +820,12 @@ export default function StaffOrdersPage() {
               fontFamily: "Inter, sans-serif",
             }}
           >
-            Order Queue
+            {activeCol.label}
           </h2>
-          <p
-            style={{ color: "#9080A8", fontSize: "0.74rem", marginTop: "2px" }}
-          >
-            {totalActive} active order{totalActive !== 1 ? "s" : ""}
+          <p style={{ color: "#9080A8", fontSize: "0.74rem", marginTop: "2px" }}>
+            Use the left status panel to move between order queues.
           </p>
         </div>
-        {/* Search */}
         <div style={{ position: "relative" }}>
           <span
             style={{
@@ -503,78 +854,29 @@ export default function StaffOrdersPage() {
         </div>
       </div>
 
-      {/* ── Tab bar ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: "6px",
-          flexWrap: "wrap",
-          marginBottom: "16px",
-          padding: "6px",
-          background: "#0D0820",
-          borderRadius: "12px",
-          border: "1px solid rgba(201,168,76,0.1)",
-        }}
-      >
-        {COLUMNS.map((col) => {
-          const count = grouped[col.status]?.length || 0;
-          const isActive = activeTab === col.status;
-          return (
-            <button
-              key={col.status}
-              onClick={() => setActiveTab(col.status)}
-              title={col.label}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "7px",
-                padding: "8px 14px",
-                borderRadius: "8px",
-                border: "none",
-                cursor: "pointer",
-                fontFamily: "Inter, sans-serif",
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                transition: "all 0.18s",
-                background: isActive ? col.color + "22" : "transparent",
-                color: isActive ? col.color : "rgba(240,232,220,0.45)",
-                borderBottom: isActive
-                  ? `2px solid ${col.color}`
-                  : "2px solid transparent",
-              }}
-            >
-              <span style={{ fontSize: "0.9rem" }}>{col.icon}</span>
-              <span className="hidden sm:inline">{col.label}</span>
-              <span
-                style={{
-                  background: isActive ? col.color : "rgba(255,255,255,0.08)",
-                  color: isActive ? "#1A0F2E" : "#9080A8",
-                  borderRadius: "20px",
-                  fontSize: "0.62rem",
-                  fontWeight: 800,
-                  padding: "1px 7px",
-                  minWidth: "20px",
-                  textAlign: "center",
-                }}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Active column panel ── */}
       {loading ? (
         <Spinner className="py-20" />
+      ) : isTableView ? (
+        <OrderTablePanel col={activeCol} orders={activeOrders} onView={openDetails} />
       ) : (
         <ColumnPanel
           col={activeCol}
           orders={activeOrders}
           acting={acting}
           onAction={handleAction}
+          onView={openDetails}
         />
       )}
+
+      <OrderDetailsModal
+        order={selectedOrder}
+        items={selectedItems}
+        paymentProof={selectedProof}
+        loading={detailsLoading}
+        acting={acting}
+        onAction={handleAction}
+        onClose={() => setSelectedOrder(null)}
+      />
     </StaffLayout>
   );
 }

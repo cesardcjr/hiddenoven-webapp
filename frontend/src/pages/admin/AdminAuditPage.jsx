@@ -1,14 +1,9 @@
 import { useEffect, useState } from "react";
-import {
-  collection,
-  query,
-  orderBy,
-  limit,
-  onSnapshot,
-} from "firebase/firestore";
+import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { AdminLayout } from "../../components/layout/AdminLayout";
 import { Spinner } from "../../components/ui/Spinner";
+import { Modal } from "../../components/ui/Modal";
 
 const ACTION_LABELS = {
   status_change: "Status Change",
@@ -24,18 +19,36 @@ const ACTION_LABELS = {
 
 const AUDIT_PER_PAGE = 10;
 
+function formatDateTime(value) {
+  if (!value) return "—";
+  const date = value.toDate ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-PH");
+}
+
+function actionDetails(log) {
+  if (log.action === "status_change") {
+    if (log.toStatus === "CANCELLED") {
+      return `Cancelled order. Reason: ${log.details?.cancellationReason || "—"}`;
+    }
+    if (log.toStatus === "PREPARING") return "Payment was verified and order moved to preparation.";
+    if (log.toStatus === "PAYMENT_REJECTED") return "Payment was rejected.";
+    if (log.toStatus === "READY_FOR_PICKUP") return "Order was marked ready for pickup.";
+    if (log.toStatus === "COMPLETED") return "Order was marked picked up/completed.";
+    return `Order status changed from ${log.fromStatus || "—"} to ${log.toStatus || "—"}.`;
+  }
+  return ACTION_LABELS[log.action] || log.action || "System action";
+}
+
 export default function AdminAuditPage() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
-    const q = query(
-      collection(db, "audit_log"),
-      orderBy("timestamp", "desc"),
-      limit(200),
-    );
+    const q = query(collection(db, "audit_log"), orderBy("timestamp", "desc"), limit(200));
     return onSnapshot(q, (snap) => {
       setLogs(snap.docs.map((d) => ({ logId: d.id, ...d.data() })));
       setLoading(false);
@@ -46,10 +59,10 @@ export default function AdminAuditPage() {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
-      (l.orderId || "").toLowerCase().includes(q) ||
+      (l.orderNo || l.orderId || "").toLowerCase().includes(q) ||
       (l.action || "").toLowerCase().includes(q) ||
       (ACTION_LABELS[l.action] || "").toLowerCase().includes(q) ||
-      (l.actorUid || "").toLowerCase().includes(q)
+      (l.actorName || l.actorUid || "").toLowerCase().includes(q)
     );
   });
 
@@ -99,12 +112,11 @@ export default function AdminAuditPage() {
             Audit Logs
           </h2>
           <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
-            Complete system event history · read only · Live
+            Staff actions and transaction details
           </p>
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative mb-4">
         <span
           className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[0.85rem]"
@@ -114,14 +126,12 @@ export default function AdminAuditPage() {
         </span>
         <input
           style={inputStyle}
-          placeholder="Search by order no., action, or staff UID…"
+          placeholder="Search by order no., action, or staff name…"
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
             setPage(1);
           }}
-          onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
-          onBlur={(e) => (e.target.style.borderColor = "rgba(201,168,76,0.25)")}
         />
       </div>
 
@@ -132,21 +142,12 @@ export default function AdminAuditPage() {
           className="overflow-x-auto rounded-xl"
           style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}
         >
-          <table
-            className="w-full border-collapse"
-            style={{ fontSize: "0.8rem", minWidth: "560px" }}
-          >
+          <table className="w-full border-collapse" style={{ fontSize: "0.8rem", minWidth: "620px" }}>
             <thead>
               <tr>
-                {[
-                  "Date & Time",
-                  "Action",
-                  "Order No.",
-                  "Actor",
-                  "Transition",
-                ].map((h) => (
+                {["Date & Time", "Action", "Order No.", "Actor", ""].map((h) => (
                   <th
-                    key={h}
+                    key={h || "view"}
                     className="text-left px-3 py-2.5 whitespace-nowrap"
                     style={{
                       fontSize: "0.64rem",
@@ -166,93 +167,34 @@ export default function AdminAuditPage() {
             <tbody>
               {slice.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="text-center py-10"
-                    style={{ background: "#1E1235", color: "#9080A8" }}
-                  >
+                  <td colSpan={5} className="text-center py-10" style={{ background: "#1E1235", color: "#9080A8" }}>
                     No matching log entries.
                   </td>
                 </tr>
               ) : (
                 slice.map((log) => (
-                  <tr
-                    key={log.logId}
-                    style={{ borderBottom: "1px solid rgba(201,168,76,0.09)" }}
-                    onMouseEnter={(e) =>
-                      Array.from(e.currentTarget.cells).forEach(
-                        (td) => (td.style.background = "rgba(201,168,76,0.05)"),
-                      )
-                    }
-                    onMouseLeave={(e) =>
-                      Array.from(e.currentTarget.cells).forEach(
-                        (td) => (td.style.background = "#1E1235"),
-                      )
-                    }
-                  >
-                    <td
-                      className="px-3 py-2.5 whitespace-nowrap text-[0.73rem]"
-                      style={{
-                        background: "#1E1235",
-                        color: "#9080A8",
-                        verticalAlign: "top",
-                      }}
-                    >
-                      {log.timestamp?.toDate?.()?.toLocaleString("en-PH") ??
-                        "—"}
+                  <tr key={log.logId} style={{ borderBottom: "1px solid rgba(201,168,76,0.09)" }}>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-[0.73rem]" style={{ background: "#1E1235", color: "#9080A8" }}>
+                      {formatDateTime(log.timestamp)}
                     </td>
-                    <td
-                      className="px-3 py-2.5 font-semibold"
-                      style={{
-                        background: "#1E1235",
-                        color: "#F0E8D8",
-                        verticalAlign: "top",
-                      }}
-                    >
+                    <td className="px-3 py-2.5 font-semibold" style={{ background: "#1E1235", color: "#F0E8D8" }}>
                       {ACTION_LABELS[log.action] || log.action}
                     </td>
-                    <td
-                      className="px-3 py-2.5 font-bold"
-                      style={{
-                        background: "#1E1235",
-                        color: "#C9A84C",
-                        verticalAlign: "top",
-                      }}
-                    >
-                      {log.orderId || "—"}
+                    <td className="px-3 py-2.5 font-bold" style={{ background: "#1E1235", color: "#C9A84C" }}>
+                      {log.orderNo || log.orderId || "—"}
                     </td>
-                    <td
-                      className="px-3 py-2.5 text-[0.72rem] font-mono max-w-[160px] truncate"
-                      style={{
-                        background: "#1E1235",
-                        color: "#9080A8",
-                        verticalAlign: "top",
-                      }}
-                    >
-                      {log.actorUid}
+                    <td className="px-3 py-2.5 text-[0.74rem]" style={{ background: "#1E1235", color: "#9080A8" }}>
+                      {log.actorName || log.actorUid || "—"}
                     </td>
-                    <td
-                      className="px-3 py-2.5"
-                      style={{ background: "#1E1235", verticalAlign: "top" }}
-                    >
-                      {log.fromStatus && log.toStatus ? (
-                        <span className="text-[0.75rem]">
-                          <span style={{ color: "#9080A8" }}>
-                            {log.fromStatus}
-                          </span>
-                          <span className="mx-1" style={{ color: "#5A4870" }}>
-                            →
-                          </span>
-                          <span
-                            className="font-semibold"
-                            style={{ color: "#F0E8D8" }}
-                          >
-                            {log.toStatus}
-                          </span>
-                        </span>
-                      ) : (
-                        "—"
-                      )}
+                    <td className="px-3 py-2.5 text-right" style={{ background: "#1E1235" }}>
+                      <button
+                        type="button"
+                        onClick={() => setSelected(log)}
+                        className="text-[0.75rem] font-semibold"
+                        style={{ background: "none", border: "none", color: "#C9A84C", cursor: "pointer" }}
+                      >
+                        View
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -260,7 +202,6 @@ export default function AdminAuditPage() {
             </tbody>
           </table>
 
-          {/* Pagination */}
           <div
             className="flex items-center justify-between px-4 py-3 flex-wrap gap-3"
             style={{
@@ -269,8 +210,7 @@ export default function AdminAuditPage() {
             }}
           >
             <span className="text-[0.76rem]" style={{ color: "#9080A8" }}>
-              Showing{" "}
-              {Math.min((safePage - 1) * AUDIT_PER_PAGE + 1, filtered.length)}–
+              Showing {Math.min((safePage - 1) * AUDIT_PER_PAGE + 1, filtered.length)}–
               {Math.min(safePage * AUDIT_PER_PAGE, filtered.length)} of{" "}
               {filtered.length} entries
             </span>
@@ -278,58 +218,19 @@ export default function AdminAuditPage() {
               <button
                 disabled={safePage <= 1}
                 onClick={() => setPage((p) => p - 1)}
-                style={{
-                  ...pgBtnStyle(false),
-                  opacity: safePage <= 1 ? 0.35 : 1,
-                  cursor: safePage <= 1 ? "not-allowed" : "pointer",
-                }}
+                style={{ ...pgBtnStyle(false), opacity: safePage <= 1 ? 0.35 : 1 }}
               >
                 ← Prev
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(
-                  (n) =>
-                    totalPages <= 7 ||
-                    n === 1 ||
-                    n === totalPages ||
-                    Math.abs(n - safePage) <= 1,
-                )
-                .map((n, idx, arr) => (
-                  <span key={n}>
-                    {idx > 0 && arr[idx - 1] !== n - 1 && (
-                      <span style={{ color: "#9080A8", padding: "0 4px" }}>
-                        …
-                      </span>
-                    )}
-                    <button
-                      onClick={() => setPage(n)}
-                      style={pgBtnStyle(n === safePage)}
-                      onMouseEnter={(e) => {
-                        if (n !== safePage) {
-                          e.currentTarget.style.borderColor = "#C9A84C";
-                          e.currentTarget.style.color = "#C9A84C";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (n !== safePage)
-                          Object.assign(
-                            e.currentTarget.style,
-                            pgBtnStyle(false),
-                          );
-                      }}
-                    >
-                      {n}
-                    </button>
-                  </span>
-                ))}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                <button key={n} onClick={() => setPage(n)} style={pgBtnStyle(n === safePage)}>
+                  {n}
+                </button>
+              ))}
               <button
                 disabled={safePage >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                style={{
-                  ...pgBtnStyle(false),
-                  opacity: safePage >= totalPages ? 0.35 : 1,
-                  cursor: safePage >= totalPages ? "not-allowed" : "pointer",
-                }}
+                style={{ ...pgBtnStyle(false), opacity: safePage >= totalPages ? 0.35 : 1 }}
               >
                 Next →
               </button>
@@ -337,6 +238,33 @@ export default function AdminAuditPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title="Audit Details"
+      >
+        {selected && (
+          <div className="space-y-3 text-[0.82rem]">
+            {[
+              ["Date & Time", formatDateTime(selected.timestamp)],
+              ["Order Number", selected.orderNo || selected.orderId],
+              ["Actor", selected.actorName || selected.actorUid],
+              ["Action", ACTION_LABELS[selected.action] || selected.action],
+              ["Actual Action Done", actionDetails(selected)],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <p className="text-[0.65rem] font-bold uppercase tracking-[0.5px]" style={{ color: "#9080A8" }}>
+                  {label}
+                </p>
+                <p className="font-semibold" style={{ color: "#F0E8D8" }}>
+                  {value || "—"}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </AdminLayout>
   );
 }

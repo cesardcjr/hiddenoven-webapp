@@ -234,10 +234,18 @@ export default function AdminProductsPage() {
                 </div>
                 {p.dailyStockLimit && (
                   <div
-                    className="text-[0.72rem] mb-2"
-                    style={{ color: "#9080A8" }}
+                    className="rounded-lg p-2 mb-2 text-[0.72rem]"
+                    style={{
+                      background: "rgba(201,168,76,0.07)",
+                      border: "1px solid rgba(201,168,76,0.14)",
+                      color: "#9080A8",
+                    }}
                   >
-                    Max/day: {p.dailyStockLimit}
+                    <div>Stock limit: {p.dailyStockLimit}</div>
+                    <div>Ordered today: {p.dailyStockUsed || 0}</div>
+                    <div style={{ color: p.dailyStockRemaining <= 0 ? "#E05252" : "#E8C96D" }}>
+                      Remaining: {p.dailyStockRemaining ?? p.dailyStockLimit}
+                    </div>
                   </div>
                 )}
                 <div

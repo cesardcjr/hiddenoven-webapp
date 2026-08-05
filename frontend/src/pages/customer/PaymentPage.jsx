@@ -4,13 +4,13 @@ import { api } from "../../lib/api";
 import { useCart } from "../../context/CartContext";
 import { CustomerLayout } from "../../components/layout/CustomerLayout";
 import { TextInput } from "../../components/ui/FormField";
-import { useToast } from "../../components/ui/Toast";
+import { Swal } from "../../lib/swal";
+import hiddenOvenLogo from "../../images/hidden-oven-logo.jpg";
 
 export default function PaymentPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { clearCart } = useCart();
-  const { showToast, ToastContainer } = useToast();
   const [checkoutDraft] = useState(() => {
     if (location.state?.checkoutDraft) return location.state.checkoutDraft;
     const stored = sessionStorage.getItem("checkout_draft");
@@ -18,6 +18,8 @@ export default function PaymentPage() {
   });
 
   const [refNumber, setRefNumber] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentProvider, setPaymentProvider] = useState("");
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [paymentModes, setPaymentModes] = useState([]);
@@ -78,6 +80,19 @@ export default function PaymentPage() {
       setError("Reference number is required.");
       return;
     }
+    const amount = Number(paymentAmount);
+    if (!paymentAmount || Number.isNaN(amount) || amount <= 0) {
+      setError("Payment amount is required.");
+      return;
+    }
+    if (checkoutDraft?.total && amount < Number(checkoutDraft.total)) {
+      setError("Payment amount must be at least the order total.");
+      return;
+    }
+    if (!paymentProvider.trim()) {
+      setError("Please select the bank or service provider used.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -87,20 +102,24 @@ export default function PaymentPage() {
         imageBase64,
         mimeType: file.type,
         refNumber: refNumber.trim(),
+        paymentAmount: amount,
+        paymentProvider: paymentProvider.trim(),
       });
       clearCart();
       sessionStorage.removeItem("checkout_draft");
-      showToast("Payment submitted! We'll verify it shortly.", "success");
-      setTimeout(
-        () =>
-          navigate(
-            `/track?orderNo=${encodeURIComponent(result.orderNo)}&direct=true`,
-            { replace: true },
-          ),
-        1200,
-      );
+      await Swal.fire({
+        title: "Sweet!",
+        text: "Thank you for your order!",
+        imageUrl: hiddenOvenLogo,
+        imageWidth: 180,
+        imageHeight: 180,
+        imageAlt: "The Hidden Oven logo",
+        confirmButtonText: "Track My Order",
+      });
+      navigate(`/track?orderNo=${encodeURIComponent(result.orderNo)}&direct=true`, {
+        replace: true,
+      });
     } catch (err) {
-      showToast(err.message, "error");
       setError(err.message);
     } finally {
       setSubmitting(false);
@@ -116,7 +135,6 @@ export default function PaymentPage() {
 
   return (
     <CustomerLayout>
-      <ToastContainer />
       <div className="max-w-lg mx-auto">
         <div className="flex items-center justify-between mb-4 gap-3">
           <button className="btn-secondary" onClick={() => navigate("/cart")}>
@@ -274,6 +292,43 @@ export default function PaymentPage() {
           </div>
 
           {/* File upload */}
+          <div className="mb-4">
+            <label className="label">Bank / Service Provider Used</label>
+            <select
+              value={paymentProvider}
+              onChange={(e) => setPaymentProvider(e.target.value)}
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1.5px solid rgba(201,168,76,0.25)",
+                borderRadius: "8px",
+                color: "#F0E8D8",
+                fontSize: "0.84rem",
+                fontFamily: "Inter,sans-serif",
+                outline: "none",
+                padding: "9px 12px",
+                width: "100%",
+                colorScheme: "dark",
+              }}
+            >
+              <option value="">Select payment mode</option>
+              {paymentModes.map((mode) => (
+                <option key={mode.modeId} value={mode.provider}>
+                  {mode.provider}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <TextInput
+            label="Amount Paid"
+            type="number"
+            min="0"
+            step="0.01"
+            value={paymentAmount}
+            onChange={(e) => setPaymentAmount(e.target.value)}
+            placeholder={`Required amount: ₱${Number(checkoutDraft?.total || 0).toFixed(2)}`}
+          />
+
           <div className="mb-4">
             <label className="label">Payment Screenshot</label>
             <label

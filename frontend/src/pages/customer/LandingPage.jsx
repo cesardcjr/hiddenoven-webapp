@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CustomerLayout } from "../../components/layout/CustomerLayout";
 import { Modal } from "../../components/ui/Modal";
 import { TextInput } from "../../components/ui/FormField";
+import hiddenOvenLogo from "../../images/hidden-oven-logo.jpg";
 
 const imageModules = import.meta.glob("../../images/*.{jpg,jpeg,png,webp}", {
   eager: true,
@@ -15,7 +16,11 @@ export default function LandingPage() {
   const [active, setActive] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
   const [trackOpen, setTrackOpen] = useState(false);
-  const [orderNo, setOrderNo] = useState("");
+  const [trackForm, setTrackForm] = useState({
+    orderNo: "",
+    customerName: "",
+    contactNumber: "",
+  });
 
   useEffect(() => {
     if (images.length <= 1) return undefined;
@@ -38,8 +43,16 @@ export default function LandingPage() {
   }
 
   function handleTrackConfirm() {
-    if (!orderNo.trim()) return;
-    navigate(`/track?orderNo=${encodeURIComponent(orderNo.trim())}`);
+    const params = new URLSearchParams();
+    if (trackForm.orderNo.trim()) {
+      params.set("orderNo", trackForm.orderNo.trim());
+    } else {
+      if (!trackForm.customerName.trim() || !trackForm.contactNumber.trim())
+        return;
+      params.set("customerName", trackForm.customerName.trim());
+      params.set("contactNumber", trackForm.contactNumber.trim());
+    }
+    navigate(`/track?${params.toString()}`);
   }
 
   return (
@@ -48,15 +61,18 @@ export default function LandingPage() {
         <section className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-8 items-center min-h-[calc(100vh-220px)]">
           <div className="text-center lg:text-left">
             <div
-              className="w-32 h-32 md:w-40 md:h-40 rounded-full mx-auto lg:mx-0 mb-5 flex items-center justify-center font-display text-4xl font-bold"
+              className="w-32 h-32 md:w-40 md:h-40 rounded-full mx-auto lg:mx-0 mb-5 overflow-hidden"
               style={{
                 background: "rgba(201,168,76,0.16)",
                 border: "2px solid rgba(201,168,76,0.35)",
-                color: "#E8C96D",
                 boxShadow: "0 12px 36px rgba(0,0,0,0.35)",
               }}
             >
-              HO
+              <img
+                src={hiddenOvenLogo}
+                alt="The Hidden Oven logo"
+                className="h-full w-full object-cover"
+              />
             </div>
             <h1
               className="font-display text-3xl md:text-4xl font-bold mb-3"
@@ -168,13 +184,39 @@ export default function LandingPage() {
         title="Track Order"
       >
         <p className="text-[0.82rem] mb-4" style={{ color: "#9080A8" }}>
-          Enter your order number to view the latest order status.
+          Enter your order number, or use your name and contact number.
         </p>
         <TextInput
           label="Order Number"
-          value={orderNo}
-          onChange={(e) => setOrderNo(e.target.value)}
+          value={trackForm.orderNo}
+          onChange={(e) =>
+            setTrackForm({ ...trackForm, orderNo: e.target.value })
+          }
           placeholder="HO-20240101-0001"
+        />
+        <div
+          className="flex items-center gap-3 my-3"
+          style={{ color: "rgba(240,232,220,0.25)" }}
+        >
+          <div className="flex-1 h-px" style={{ background: "rgba(201,168,76,0.12)" }} />
+          <span className="text-[0.72rem] font-medium">or</span>
+          <div className="flex-1 h-px" style={{ background: "rgba(201,168,76,0.12)" }} />
+        </div>
+        <TextInput
+          label="Your Name"
+          value={trackForm.customerName}
+          onChange={(e) =>
+            setTrackForm({ ...trackForm, customerName: e.target.value })
+          }
+          placeholder="Juan Dela Cruz"
+        />
+        <TextInput
+          label="Mobile Number"
+          value={trackForm.contactNumber}
+          onChange={(e) =>
+            setTrackForm({ ...trackForm, contactNumber: e.target.value })
+          }
+          placeholder="09XXXXXXXXX"
         />
         <div className="flex gap-3 justify-end">
           <button className="btn-secondary" onClick={() => setTrackOpen(false)}>

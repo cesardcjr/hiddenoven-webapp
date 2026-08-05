@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useCart } from "../../context/CartContext";
 import { CustomerLayout } from "../../components/layout/CustomerLayout";
 import { Spinner } from "../../components/ui/Spinner";
-import { useToast } from "../../components/ui/Toast";
+import { getDailyStockRemaining } from "../../lib/date";
 
 const CATEGORIES = ["All", "Bread", "Pastry", "Cake"];
 
@@ -12,18 +12,15 @@ export default function CatalogPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("All");
-  const { addItem } = useCart();
-  const { showToast, ToastContainer } = useToast();
+  const { items, addItem } = useCart();
 
   useEffect(() => {
-    async function fetchProducts() {
-      const snap = await getDocs(
-        query(collection(db, "products"), where("isAvailable", "==", true)),
-      );
+    const q = query(collection(db, "products"), where("isAvailable", "==", true));
+    const unsubscribe = onSnapshot(q, (snap) => {
       setProducts(snap.docs.map((d) => ({ productId: d.id, ...d.data() })));
       setLoading(false);
-    }
-    fetchProducts();
+    });
+    return unsubscribe;
   }, []);
 
   const filtered =
@@ -34,14 +31,14 @@ export default function CatalogPage() {
         );
 
   function handleAdd(product) {
+    const remaining = getDailyStockRemaining(product);
+    const inCart = items.find((i) => i.productId === product.productId)?.qty || 0;
+    if (remaining !== null && inCart >= remaining) return;
     addItem(product);
-    showToast(`${product.name} added to cart.`, "success");
   }
 
   return (
     <CustomerLayout>
-      <ToastContainer />
-
       {/* Hero */}
       <div className="mb-8">
         <p
@@ -113,23 +110,41 @@ export default function CatalogPage() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {filtered.map((product) => (
-            <div
+            <ProductCard
               key={product.productId}
-              className="flex flex-col overflow-hidden rounded-card transition-all duration-200"
-              style={{
-                background: "#1E1235",
-                border: "1px solid rgba(201,168,76,0.18)",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.45)";
-                e.currentTarget.style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.35)";
-                e.currentTarget.style.transform = "translateY(0)";
-              }}
-            >
+              product={product}
+              cartQty={items.find((i) => i.productId === product.productId)?.qty || 0}
+              onAdd={handleAdd}
+            />
+          ))}
+        </div>
+      )}
+    </CustomerLayout>
+  );
+}
+
+function ProductCard({ product, cartQty, onAdd }) {
+  const remaining = getDailyStockRemaining(product);
+  const outOfStock = remaining !== null && cartQty >= remaining;
+
+  return (
+    <div
+      className="flex flex-col overflow-hidden rounded-card transition-all duration-200"
+      style={{
+        background: "#1E1235",
+        border: "1px solid rgba(201,168,76,0.18)",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+        opacity: outOfStock ? 0.68 : 1,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.45)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.35)";
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
               {/* Image */}
               {product.imageUrl ? (
                 <img
@@ -179,27 +194,35 @@ export default function CatalogPage() {
                   ₱{product.price.toFixed(2)}
                 </p>
 
+                {remaining !== null && (
+                  <p className="text-[0.72rem] mb-3" style={{ color: outOfStock ? "#E05252" : "#9080A8" }}>
+                    Stock left today: {Math.max(0, remaining - cartQty)}
+                  </p>
+                )}
+
                 <button
-                  onClick={() => handleAdd(product)}
+                  onClick={() => onAdd(product)}
+                  disabled={outOfStock}
                   className="mt-auto w-full text-[0.8rem] font-semibold py-2 rounded-lg transition-all duration-150"
-                  style={{ background: "#C9A84C", color: "#1A0F2E" }}
+                  style={{
+                    background: outOfStock ? "#5A4870" : "#C9A84C",
+                    color: outOfStock ? "#F0E8D8" : "#1A0F2E",
+                    cursor: outOfStock ? "not-allowed" : "pointer",
+                  }}
                   onMouseEnter={(e) => {
+                    if (outOfStock) return;
                     e.currentTarget.style.background = "#E8C96D";
                     e.currentTarget.style.boxShadow =
                       "0 4px 16px rgba(201,168,76,0.30)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "#C9A84C";
+                    e.currentTarget.style.background = outOfStock ? "#5A4870" : "#C9A84C";
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 >
-                  Add to Cart
+                  {outOfStock ? "Out of Stock" : "Add Item"}
                 </button>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </CustomerLayout>
+    </div>
   );
 }

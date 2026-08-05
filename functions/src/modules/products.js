@@ -1,6 +1,6 @@
 const express = require("express");
 const { FieldValue } = require("firebase-admin/firestore");
-const { db, bucket, writeAuditLog, getPublicUrl } = require("../utils/db");
+const { db, bucket, writeAuditLog, getPublicUrl, getPHTDateString } = require("../utils/db");
 const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -10,7 +10,19 @@ const onlyAdmin = requireRole("admin");
 router.get("/", onlyAdmin, async (req, res, next) => {
   try {
     const snap = await db.collection("products").get();
-    const products = snap.docs.map((d) => ({ productId: d.id, ...d.data() }));
+    const today = getPHTDateString();
+    const products = snap.docs.map((d) => {
+      const data = d.data();
+      const dailyStockLimit = data.dailyStockLimit || null;
+      const dailyStockUsed = data.stockDate === today ? data.dailyStockUsed || 0 : 0;
+      return {
+        productId: d.id,
+        ...data,
+        dailyStockUsed,
+        dailyStockRemaining:
+          dailyStockLimit === null ? null : Math.max(0, dailyStockLimit - dailyStockUsed),
+      };
+    });
     res.json(products);
   } catch (err) {
     next(err);
