@@ -240,12 +240,12 @@ export default function CartPage() {
               return (
               <div
                 key={item.productId}
-                className="flex items-center gap-4 px-5 py-4 rounded-card"
+                className="flex flex-wrap items-center gap-3 px-4 py-4 rounded-card sm:flex-nowrap sm:gap-4 sm:px-5"
                 style={surfaceStyle}
               >
-                <div className="flex-1 min-w-0">
+                <div className="w-full min-w-0 sm:flex-1">
                   <p
-                    className="font-semibold text-[0.9rem] truncate"
+                    className="font-semibold text-[0.9rem] leading-snug break-words"
                     style={{ color: "#F0E8D8" }}
                   >
                     {item.name}
@@ -259,10 +259,10 @@ export default function CartPage() {
                 </div>
 
                 {/* Qty stepper */}
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 order-3 sm:order-none">
                   <button
                     onClick={() => handleQtyChange(item, item.qty - 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold sm:w-7 sm:h-7"
                     style={{
                       background: "rgba(201,168,76,0.12)",
                       color: "#C9A84C",
@@ -272,7 +272,7 @@ export default function CartPage() {
                     −
                   </button>
                   <span
-                    className="w-8 text-center text-[0.85rem] font-semibold"
+                    className="w-9 text-center text-[0.85rem] font-semibold sm:w-8"
                     style={{ color: "#F0E8D8" }}
                   >
                     {item.qty}
@@ -280,7 +280,7 @@ export default function CartPage() {
                   <button
                     onClick={() => handleQtyChange(item, item.qty + 1)}
                     disabled={atLimit}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold sm:w-7 sm:h-7"
                     style={{
                       background: "rgba(201,168,76,0.12)",
                       color: atLimit ? "#5A4870" : "#C9A84C",
@@ -293,7 +293,7 @@ export default function CartPage() {
                 </div>
 
                 <p
-                  className="font-bold w-20 text-right text-[0.9rem]"
+                  className="font-bold ml-auto min-w-[76px] text-right text-[0.9rem]"
                   style={{ color: "#C9A84C" }}
                 >
                   ₱{(item.price * item.qty).toFixed(2)}
@@ -301,7 +301,7 @@ export default function CartPage() {
 
                 <button
                   onClick={() => removeItem(item.productId)}
-                  className="text-[0.75rem] font-medium"
+                  className="text-[0.75rem] font-medium ml-auto sm:ml-0"
                   style={{ color: "rgba(224,82,82,0.7)" }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.color = "#E05252")
@@ -312,11 +312,6 @@ export default function CartPage() {
                 >
                   Remove
                 </button>
-                {remaining !== null && (
-                  <p className="text-[0.7rem]" style={{ color: atLimit ? "#E05252" : "#9080A8" }}>
-                    Stock left today: {Math.max(0, remaining - item.qty)}
-                  </p>
-                )}
               </div>
             );})}
             <div
