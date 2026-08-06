@@ -199,6 +199,44 @@ router.delete("/modes/:id", requireRole("admin"), async (req, res, next) => {
   }
 });
 
+// GET /api/payments/proofs/:id/image - private payment proof image preview
+router.get(
+  "/proofs/:id/image",
+  requireRole("staff", "admin"),
+  async (req, res, next) => {
+    try {
+      const proofSnap = await db
+        .collection("payment_proofs")
+        .doc(req.params.id)
+        .get();
+
+      if (!proofSnap.exists) {
+        return res.status(404).json({ error: "Payment proof not found." });
+      }
+
+      const { storagePath } = proofSnap.data();
+      if (!storagePath) {
+        return res.status(404).json({ error: "Payment proof image not found." });
+      }
+
+      const file = bucket.file(storagePath);
+      const [exists] = await file.exists();
+      if (!exists) {
+        return res
+          .status(404)
+          .json({ error: "Payment proof image has expired or was deleted." });
+      }
+
+      const [metadata] = await file.getMetadata();
+      res.set("Content-Type", metadata.contentType || "application/octet-stream");
+      res.set("Cache-Control", "private, max-age=300");
+      file.createReadStream().on("error", next).pipe(res);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // PATCH /api/payments/:id/verify
 router.patch(
   "/:id/verify",

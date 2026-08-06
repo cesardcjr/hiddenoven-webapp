@@ -14,6 +14,7 @@ import { StatusBadge } from "../../components/ui/StatusBadge";
 import { useToast } from "../../components/ui/Toast";
 import { Spinner } from "../../components/ui/Spinner";
 import { Modal } from "../../components/ui/Modal";
+import { ReceiptPreview } from "../../components/ui/ReceiptPreview";
 import { Swal } from "../../lib/swal";
 
 const QUEUE_STATUSES = [
@@ -28,6 +29,12 @@ const QUEUE_STATUSES = [
 
 const COLUMNS = [
   { status: "NEW", label: "New Orders", color: "#E8A94C", icon: "🆕" },
+  {
+    status: "ADVANCE",
+    label: "Advance Orders",
+    color: "#4FC3C7",
+    icon: "Cal",
+  },
   {
     status: "PAYMENT_REVIEW",
     label: "Payment Review",
@@ -105,6 +112,40 @@ function formatDateTime(value) {
 
 function peso(value) {
   return `₱${(Number(value) || 0).toFixed(2)}`;
+}
+
+const ADVANCE_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "tomorrow", label: "Tomorrow" },
+  { key: "custom", label: "Custom Date" },
+];
+
+function getPHTDateString(offsetDays = 0) {
+  const pht = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  pht.setUTCDate(pht.getUTCDate() + offsetDays);
+  return `${pht.getUTCFullYear()}-${String(pht.getUTCMonth() + 1).padStart(2, "0")}-${String(pht.getUTCDate()).padStart(2, "0")}`;
+}
+
+function parsePickupMinutes(label) {
+  const match = String(label).match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return 9999;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hour !== 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+  return hour * 60 + minute;
+}
+
+function pickupSortValue(order) {
+  const date = order.pickupDate || "9999-12-31";
+  const minutes =
+    typeof order.pickupStartMinutes === "number"
+      ? order.pickupStartMinutes
+      : typeof order.startMinutes === "number"
+        ? order.startMinutes
+        : parsePickupMinutes(order.pickupLabel || "");
+  return `${date}-${String(minutes).padStart(4, "0")}`;
 }
 
 function btnStyle(variant) {
@@ -241,6 +282,9 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
         <span style={{ color: "#9080A8", fontSize: "0.73rem" }}>
           {order.contactNumber}
         </span>
+        <div>
+          <StatusBadge status={order.status} />
+        </div>
         <span style={{ color: "#5A4870", fontSize: "0.7rem" }}>
           📅 {order.pickupDate} · {order.pickupLabel || "—"}
         </span>
@@ -338,6 +382,126 @@ function ColumnPanel({ col, orders, acting, onAction, onView }) {
     </div>
   );
 }
+
+function AdvanceOrdersPanel({
+  col,
+  orders,
+  filter,
+  onFilterChange,
+  customFrom,
+  customTo,
+  onCustomFromChange,
+  onCustomToChange,
+  minDate,
+  acting,
+  onAction,
+  onView,
+}) {
+  return (
+    <div
+      style={{
+        background: "#120B22",
+        border: "1px solid rgba(201,168,76,0.1)",
+        borderRadius: "14px",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "200px",
+        overflow: "hidden",
+      }}
+    >
+      <PanelHeader col={col} count={orders.length} />
+
+      <div
+        style={{
+          padding: "14px",
+          borderBottom: "1px solid rgba(201,168,76,0.1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {ADVANCE_FILTERS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => onFilterChange(option.key)}
+              style={{
+                ...btnStyle(filter === option.key ? "primary" : "ghost"),
+                borderColor:
+                  filter === option.key ? "transparent" : "rgba(201,168,76,0.25)",
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        {filter === "custom" && (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <input
+              type="date"
+              value={customFrom}
+              min={minDate}
+              max={customTo}
+              onChange={(e) => onCustomFromChange(e.target.value)}
+              style={advanceDateInputStyle}
+            />
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom || minDate}
+              onChange={(e) => onCustomToChange(e.target.value)}
+              style={advanceDateInputStyle}
+            />
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{
+          padding: "14px",
+          display: "grid",
+          gridTemplateColumns: "repeat(5, 1fr)",
+          gap: "12px",
+          alignContent: "start",
+          flex: 1,
+        }}
+        className="staff-card-grid"
+      >
+        {orders.length === 0 ? (
+          <EmptyState />
+        ) : (
+          orders.map((order, idx) => (
+            <OrderCard
+              key={order.orderId}
+              order={order}
+              rank={idx + 1}
+              colColor={col.color}
+              acting={acting}
+              onAction={onAction}
+              onView={onView}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+const advanceDateInputStyle = {
+  background: "rgba(255,255,255,0.05)",
+  border: "1.5px solid rgba(201,168,76,0.25)",
+  borderRadius: "8px",
+  color: "#F0E8D8",
+  fontSize: "0.78rem",
+  fontFamily: "Inter, sans-serif",
+  padding: "6px 9px",
+  outline: "none",
+  colorScheme: "dark",
+};
 
 function PanelHeader({ col, count }) {
   return (
@@ -534,6 +698,8 @@ function OrderDetailsModal({
             )}
           </div>
 
+          <ReceiptPreview proofId={paymentProof?.proofId} />
+
           <div>
             <h3
               style={{
@@ -626,6 +792,10 @@ export default function StaffOrdersPage() {
   const [acting, setActing] = useState(false);
   const [activeTab, setActiveTab] = useState("NEW");
   const [search, setSearch] = useState("");
+  const tomorrow = getPHTDateString(1);
+  const [advanceFilter, setAdvanceFilter] = useState("all");
+  const [customFrom, setCustomFrom] = useState(tomorrow);
+  const [customTo, setCustomTo] = useState(tomorrow);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedProof, setSelectedProof] = useState(null);
@@ -760,17 +930,50 @@ export default function StaffOrdersPage() {
 
   const grouped = useMemo(() => {
     const byStatus = Object.fromEntries(QUEUE_STATUSES.map((s) => [s, []]));
+    const today = getPHTDateString();
     filtered.forEach((order) => {
+      if (order.pickupDate > today) return;
       if (byStatus[order.status]) byStatus[order.status].push(order);
     });
     return byStatus;
   }, [filtered]);
 
+  const advanceOrders = useMemo(() => {
+    const today = getPHTDateString();
+    const nextDay = getPHTDateString(1);
+    return filtered
+      .filter((order) => order.pickupDate > today)
+      .filter((order) => {
+        if (advanceFilter === "tomorrow") return order.pickupDate === nextDay;
+        if (advanceFilter === "custom") {
+          return (
+            order.pickupDate >= customFrom &&
+            order.pickupDate <= customTo
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => pickupSortValue(a).localeCompare(pickupSortValue(b)));
+  }, [filtered, advanceFilter, customFrom, customTo]);
+
+  const allAdvanceOrders = useMemo(() => {
+    const today = getPHTDateString();
+    return filtered
+      .filter((order) => order.pickupDate > today)
+      .sort((a, b) => pickupSortValue(a).localeCompare(pickupSortValue(b)));
+  }, [filtered]);
+
   const activeCol = COLUMNS.find((c) => c.status === activeTab) || COLUMNS[0];
-  const activeOrders = grouped[activeCol.status] || [];
+  const activeOrders =
+    activeCol.status === "ADVANCE"
+      ? advanceOrders
+      : grouped[activeCol.status] || [];
   const sidebarItems = COLUMNS.map((col) => ({
     ...col,
-    count: grouped[col.status]?.length || 0,
+    count:
+      col.status === "ADVANCE"
+        ? allAdvanceOrders.length
+        : grouped[col.status]?.length || 0,
   }));
   const isTableView = ["COMPLETED", "CANCELLED"].includes(activeCol.status);
 
@@ -856,6 +1059,25 @@ export default function StaffOrdersPage() {
 
       {loading ? (
         <Spinner className="py-20" />
+      ) : activeCol.status === "ADVANCE" ? (
+        <AdvanceOrdersPanel
+          col={activeCol}
+          orders={activeOrders}
+          filter={advanceFilter}
+          onFilterChange={setAdvanceFilter}
+          customFrom={customFrom}
+          customTo={customTo}
+          onCustomFromChange={(value) => {
+            const next = value || tomorrow;
+            setCustomFrom(next);
+            if (customTo < next) setCustomTo(next);
+          }}
+          onCustomToChange={(value) => setCustomTo(value || customFrom)}
+          minDate={tomorrow}
+          acting={acting}
+          onAction={handleAction}
+          onView={openDetails}
+        />
       ) : isTableView ? (
         <OrderTablePanel col={activeCol} orders={activeOrders} onView={openDetails} />
       ) : (

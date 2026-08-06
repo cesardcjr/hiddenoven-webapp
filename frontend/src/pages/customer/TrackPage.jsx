@@ -194,6 +194,10 @@ function TrackingResult({ order, onBackHome, onSearchAgain }) {
           Back to Home
         </button>
       </div>
+      <p className="text-center text-[0.78rem] mt-3" style={{ color: "#9080A8" }}>
+        You can check your order anytime using your order number, or your name
+        and mobile number together.
+      </p>
     </div>
   );
 }

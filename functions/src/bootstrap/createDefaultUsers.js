@@ -2,6 +2,7 @@ const admin = require("firebase-admin");
 const { FieldValue } = require("firebase-admin/firestore");
 
 if (
+  process.env.FUNCTIONS_EMULATOR === "true" &&
   process.env.USE_FIREBASE_EMULATORS === "true" &&
   !process.env.FIREBASE_AUTH_EMULATOR_HOST
 ) {

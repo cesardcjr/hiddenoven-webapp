@@ -26,18 +26,6 @@ function getPublicUrl(fileName) {
   return `https://storage.googleapis.com/${bucket.name}/${fileName}`;
 }
 
-async function getPaymentProofUrl(fileName) {
-  if (process.env.STORAGE_EMULATOR_HOST) {
-    return getPublicUrl(fileName);
-  }
-
-  const [url] = await bucket.file(fileName).getSignedUrl({
-    action: "read",
-    expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
-  });
-  return url;
-}
-
 /**
  * Write an audit log entry.
  */
@@ -129,7 +117,6 @@ module.exports = {
   writeAuditLog,
   generateOrderNumber,
   getPublicUrl,
-  getPaymentProofUrl,
   getPickupCounterRef,
   isActiveBookingStatus,
   adjustPickupSlotCounter,

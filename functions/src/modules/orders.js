@@ -5,7 +5,6 @@ const {
   bucket,
   writeAuditLog,
   generateOrderNumber,
-  getPaymentProofUrl,
   getPickupCounterRef,
   isActiveBookingStatus,
   adjustPickupSlotCounter,
@@ -326,7 +325,6 @@ router.post("/with-payment", async (req, res, next) => {
     const file = bucket.file(fileName);
 
     await file.save(proofBuffer, { metadata: { contentType: mimeType } });
-    const imageUrl = await getPaymentProofUrl(fileName);
 
     await db.runTransaction(async (transaction) => {
       const configRef = db
@@ -427,7 +425,7 @@ router.post("/with-payment", async (req, res, next) => {
 
       transaction.set(proofRef, {
         orderId: orderRef.id,
-        imageUrl,
+        imageUrl: "",
         storagePath: fileName,
         refNumber: refNumber.trim(),
         paymentProvider: paymentProvider.trim(),
@@ -484,13 +482,12 @@ router.post("/:id/proof", async (req, res, next) => {
     }
 
     await file.save(buffer, { metadata: { contentType: mimeType } });
-    const imageUrl = await getPaymentProofUrl(fileName);
 
     // Write payment_proofs document
     const proofRef = db.collection("payment_proofs").doc();
     await proofRef.set({
       orderId,
-      imageUrl,
+      imageUrl: "",
       storagePath: fileName,
       refNumber: refNumber.trim(),
       verifiedStatus: "pending",
@@ -498,7 +495,7 @@ router.post("/:id/proof", async (req, res, next) => {
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    res.status(201).json({ proofId: proofRef.id, imageUrl });
+    res.status(201).json({ proofId: proofRef.id });
   } catch (err) {
     next(err);
   }
