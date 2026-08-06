@@ -11,9 +11,14 @@ scripts/serviceAccountKey.json
 # Environment variables — NEVER commit these
 .env
 .env.local
-.env.*.local
+.env.*
+!.env.example
 frontend/.env
+frontend/.env.*
+!frontend/.env.example
 functions/.env
+functions/.env.*
+!functions/.env.example
 
 # Firebase
 **/serviceAccountKey.json

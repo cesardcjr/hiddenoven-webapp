@@ -1,6 +1,7 @@
 {
   "projects": {
-    "dev": "hiddenoven-dev"
+    "dev": "hiddenoven-dev",
+    "prod": "hiddenoven-prod"
   },
   "targets": {},
   "etags": {}
