@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { AdminLayout } from "../../components/layout/AdminLayout";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
+import { ReceiptPreview } from "../../components/ui/ReceiptPreview";
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -46,6 +54,8 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [selectedProof, setSelectedProof] = useState(null);
+  const [proofLoading, setProofLoading] = useState(false);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -78,6 +88,30 @@ export default function AdminOrdersPage() {
     width: "220px",
     transition: "border 0.2s",
   };
+
+  async function openDetails(order) {
+    setSelected(order);
+    setSelectedProof(null);
+    setProofLoading(true);
+
+    try {
+      const proofsQuery = query(
+        collection(db, "payment_proofs"),
+        where("orderId", "==", order.orderId),
+        orderBy("createdAt", "desc"),
+      );
+      const proofsSnap = await getDocs(proofsQuery);
+      setSelectedProof(
+        proofsSnap.docs[0]
+          ? { proofId: proofsSnap.docs[0].id, ...proofsSnap.docs[0].data() }
+          : null,
+      );
+    } catch (err) {
+      console.error("Payment proof lookup failed:", err);
+    } finally {
+      setProofLoading(false);
+    }
+  }
 
   return (
     <AdminLayout>
@@ -160,7 +194,7 @@ export default function AdminOrdersPage() {
                     borderBottom: "1px solid rgba(201,168,76,0.09)",
                     cursor: "pointer",
                   }}
-                  onClick={() => setSelected(o)}
+                  onClick={() => openDetails(o)}
                 >
                   <td className="px-3 py-3 font-bold" style={{ background: "#1E1235", color: "#C9A84C" }}>
                     {o.orderNo}
@@ -184,7 +218,7 @@ export default function AdminOrdersPage() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelected(o);
+                        openDetails(o);
                       }}
                       className="text-[0.75rem] font-semibold"
                       style={{
@@ -211,7 +245,10 @@ export default function AdminOrdersPage() {
 
       <Modal
         open={!!selected}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          setSelected(null);
+          setSelectedProof(null);
+        }}
         title={`Order ${selected?.orderNo}`}
       >
         {selected && (
@@ -257,6 +294,23 @@ export default function AdminOrdersPage() {
                 value={money(selected.paymentAmount)}
                 highlight
               />
+            </div>
+
+            <div className="mt-3">
+              {proofLoading ? (
+                <div
+                  className="rounded-lg p-3 text-[0.78rem]"
+                  style={{
+                    background: "rgba(255,255,255,0.035)",
+                    border: "1px solid rgba(201,168,76,0.12)",
+                    color: "#9080A8",
+                  }}
+                >
+                  Loading receipt...
+                </div>
+              ) : (
+                <ReceiptPreview proofId={selectedProof?.proofId} />
+              )}
             </div>
           </div>
         )}

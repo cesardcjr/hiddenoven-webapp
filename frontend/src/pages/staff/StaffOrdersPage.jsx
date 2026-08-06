@@ -14,6 +14,7 @@ import { StatusBadge } from "../../components/ui/StatusBadge";
 import { useToast } from "../../components/ui/Toast";
 import { Spinner } from "../../components/ui/Spinner";
 import { Modal } from "../../components/ui/Modal";
+import { ReceiptPreview } from "../../components/ui/ReceiptPreview";
 import { Swal } from "../../lib/swal";
 
 const QUEUE_STATUSES = [
@@ -533,6 +534,8 @@ function OrderDetailsModal({
               />
             )}
           </div>
+
+          <ReceiptPreview proofId={paymentProof?.proofId} />
 
           <div>
             <h3

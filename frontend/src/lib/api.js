@@ -39,6 +39,27 @@ async function request(method, path, body) {
   return data;
 }
 
+async function requestBlobUrl(path) {
+  const headers = await getAuthHeaders();
+  delete headers["Content-Type"];
+
+  const res = await fetch(`${BASE_URL}${path}`, { headers });
+  if (!res.ok) {
+    let message = "Request failed.";
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await res.json();
+      message = data?.error || data?.message || message;
+    } else {
+      const text = await res.text();
+      if (text.trim()) message = text;
+    }
+    throw new Error(message);
+  }
+
+  return URL.createObjectURL(await res.blob());
+}
+
 export const api = {
   // Orders
   placeOrder: (payload) => request("POST", "/api/orders", payload),
@@ -72,6 +93,8 @@ export const api = {
   // Payments
   verifyPayment: (id, action) =>
     request("PATCH", `/api/payments/${id}/verify`, { action }),
+  getPaymentProofImageUrl: (id) =>
+    requestBlobUrl(`/api/payments/proofs/${id}/image`),
   getPaymentModes: () => request("GET", "/api/payment-modes"),
   getAdminPaymentModes: () => request("GET", "/api/payments/modes"),
   createPaymentMode: (payload) => request("POST", "/api/payments/modes", payload),
