@@ -1,6 +1,7 @@
 {
   "projects": {
     "dev": "hiddenoven-dev",
+    "staging": "hiddenoven-dev",
     "prod": "hiddenoven-prod"
   },
   "targets": {},
