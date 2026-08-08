@@ -30,19 +30,19 @@ function DetailTile({ label, value, highlight = false }) {
     <div
       className="rounded-lg p-3"
       style={{
-        background: "#261748",
-        border: "1px solid rgba(201,168,76,0.14)",
+        background: "#F4F1F8",
+        border: "1px solid rgba(70,44,125,0.14)",
       }}
     >
       <p
         className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-1"
-        style={{ color: "#9080A8" }}
+        style={{ color: "#6F6B78" }}
       >
         {label}
       </p>
       <p
         className="font-semibold"
-        style={{ color: highlight ? "#C9A84C" : "#F0E8D8" }}
+        style={{ color: highlight ? "#462C7D" : "#17151D" }}
       >
         {value || "—"}
       </p>
@@ -77,12 +77,12 @@ export default function AdminOrdersPage() {
   });
 
   const inputStyle = {
-    background: "rgba(255,255,255,0.05)",
-    border: "1.5px solid rgba(201,168,76,0.25)",
+    background: "#FFFFFF",
+    border: "1.5px solid rgba(70,44,125,0.25)",
     borderRadius: "8px",
-    color: "#F0E8D8",
+    color: "#17151D",
     fontSize: "0.84rem",
-    fontFamily: "Inter,sans-serif",
+    fontFamily: "Google Sans,Arial,sans-serif",
     outline: "none",
     padding: "8px 12px 8px 34px",
     width: "220px",
@@ -119,18 +119,18 @@ export default function AdminOrdersPage() {
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#E8C96D" }}
+            style={{ color: "#462C7D" }}
           >
             Orders
           </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
             {orders.length} total orders
           </p>
         </div>
         <div className="relative">
           <span
             className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[0.85rem]"
-            style={{ color: "#5A4870" }}
+            style={{ color: "#AAA6B0" }}
           >
             🔍
           </span>
@@ -139,9 +139,9 @@ export default function AdminOrdersPage() {
             placeholder="Search order no. or name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+            onFocus={(e) => (e.target.style.borderColor = "#462C7D")}
             onBlur={(e) =>
-              (e.target.style.borderColor = "rgba(201,168,76,0.25)")
+              (e.target.style.borderColor = "rgba(70,44,125,0.25)")
             }
           />
         </div>
@@ -152,7 +152,7 @@ export default function AdminOrdersPage() {
       ) : (
         <div
           className="overflow-x-auto rounded-xl"
-          style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}
+          style={{ boxShadow: "0 2px 12px rgba(23,21,29,0.09)" }}
         >
           <table className="w-full border-collapse" style={{ fontSize: "0.82rem" }}>
             <thead>
@@ -176,9 +176,9 @@ export default function AdminOrdersPage() {
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: "0.5px",
-                      color: "#9080A8",
-                      borderBottom: "2px solid rgba(201,168,76,0.18)",
-                      background: "#1E1235",
+                      color: "#6F6B78",
+                      borderBottom: "2px solid rgba(70,44,125,0.18)",
+                      background: "#FFFFFF",
                     }}
                   >
                     {h.label}
@@ -191,30 +191,30 @@ export default function AdminOrdersPage() {
                 <tr
                   key={o.orderId}
                   style={{
-                    borderBottom: "1px solid rgba(201,168,76,0.09)",
+                    borderBottom: "1px solid rgba(70,44,125,0.09)",
                     cursor: "pointer",
                   }}
                   onClick={() => openDetails(o)}
                 >
-                  <td className="px-3 py-3 font-bold" style={{ background: "#1E1235", color: "#C9A84C" }}>
+                  <td className="px-3 py-3 font-bold" style={{ background: "#FFFFFF", color: "#462C7D" }}>
                     {o.orderNo}
                   </td>
-                  <td className="px-3 py-3 font-semibold" style={{ background: "#1E1235", color: "#F0E8D8" }}>
+                  <td className="px-3 py-3 font-semibold" style={{ background: "#FFFFFF", color: "#17151D" }}>
                     {o.customerName}
                   </td>
-                  <td className="hidden sm:table-cell px-3 py-3" style={{ background: "#1E1235", color: "#9080A8" }}>
+                  <td className="hidden sm:table-cell px-3 py-3" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
                     {o.contactNumber}
                   </td>
-                  <td className="px-3 py-3 font-bold" style={{ background: "#1E1235", color: "#E8C96D" }}>
+                  <td className="px-3 py-3 font-bold" style={{ background: "#FFFFFF", color: "#462C7D" }}>
                     {money(o.total)}
                   </td>
-                  <td className="px-3 py-3" style={{ background: "#1E1235" }}>
+                  <td className="px-3 py-3" style={{ background: "#FFFFFF" }}>
                     <StatusBadge status={o.status} />
                   </td>
-                  <td className="hidden sm:table-cell px-3 py-3 text-[0.73rem] whitespace-nowrap" style={{ background: "#1E1235", color: "#9080A8" }}>
+                  <td className="hidden sm:table-cell px-3 py-3 text-[0.73rem] whitespace-nowrap" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
                     {formatDateTime(o.createdAt)}
                   </td>
-                  <td className="hidden sm:table-cell px-3 py-3" style={{ background: "#1E1235" }}>
+                  <td className="hidden sm:table-cell px-3 py-3" style={{ background: "#FFFFFF" }}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -225,7 +225,7 @@ export default function AdminOrdersPage() {
                         background: "none",
                         border: "none",
                         cursor: "pointer",
-                        color: "#C9A84C",
+                        color: "#462C7D",
                       }}
                     >
                       View
@@ -236,7 +236,7 @@ export default function AdminOrdersPage() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div className="text-center py-12" style={{ color: "#9080A8" }}>
+            <div className="text-center py-12" style={{ color: "#6F6B78" }}>
               No orders found.
             </div>
           )}
@@ -254,15 +254,15 @@ export default function AdminOrdersPage() {
         {selected && (
           <div>
             <div className="mb-4">
-              <p className="text-[0.72rem] mb-2" style={{ color: "#9080A8" }}>
+              <p className="text-[0.72rem] mb-2" style={{ color: "#6F6B78" }}>
                 Order Details Summary
               </p>
               <div
                 className="flex items-center justify-between gap-3 rounded-lg p-3"
-                style={{ background: "#261748" }}
+                style={{ background: "#F4F1F8" }}
               >
                 <StatusBadge status={selected.status} />
-                <span className="font-bold" style={{ color: "#C9A84C" }}>
+                <span className="font-bold" style={{ color: "#462C7D" }}>
                   {money(selected.total)}
                 </span>
               </div>
@@ -302,8 +302,8 @@ export default function AdminOrdersPage() {
                   className="rounded-lg p-3 text-[0.78rem]"
                   style={{
                     background: "rgba(255,255,255,0.035)",
-                    border: "1px solid rgba(201,168,76,0.12)",
-                    color: "#9080A8",
+                    border: "1px solid rgba(70,44,125,0.12)",
+                    color: "#6F6B78",
                   }}
                 >
                   Loading receipt...

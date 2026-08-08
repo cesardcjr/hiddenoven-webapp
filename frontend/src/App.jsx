@@ -12,6 +12,7 @@ const PaymentPage = lazy(() => import("./pages/customer/PaymentPage"));
 const TrackPage = lazy(() => import("./pages/customer/TrackPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const StaffOrdersPage = lazy(() => import("./pages/staff/StaffOrdersPage"));
+const StaffWalkInPage = lazy(() => import("./pages/staff/StaffWalkInPage"));
 const AdminDashboardPage = lazy(
   () => import("./pages/admin/AdminDashboardPage"),
 );
@@ -55,6 +56,14 @@ export default function App() {
                 element={
                   <ProtectedRoute requiredRole="staff">
                     <StaffOrdersPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/staff/walk-in"
+                element={
+                  <ProtectedRoute requiredRole="staff">
+                    <StaffWalkInPage />
                   </ProtectedRoute>
                 }
               />

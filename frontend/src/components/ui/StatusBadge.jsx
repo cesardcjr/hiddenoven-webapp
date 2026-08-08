@@ -30,9 +30,9 @@ const STATUS_STYLES = {
     border: "1px solid rgba(61,189,135,0.2)",
   },
   CANCELLED: {
-    background: "rgba(255,255,255,0.05)",
-    color: "#9080A8",
-    border: "1px solid rgba(201,168,76,0.09)",
+    background: "#FFFFFF",
+    color: "#6F6B78",
+    border: "1px solid rgba(70,44,125,0.09)",
   },
 };
 
@@ -48,9 +48,9 @@ const STATUS_LABELS = {
 
 export function StatusBadge({ status }) {
   const style = STATUS_STYLES[status] || {
-    background: "rgba(255,255,255,0.05)",
-    color: "#9080A8",
-    border: "1px solid rgba(201,168,76,0.09)",
+    background: "#FFFFFF",
+    color: "#6F6B78",
+    border: "1px solid rgba(70,44,125,0.09)",
   };
   return (
     <span

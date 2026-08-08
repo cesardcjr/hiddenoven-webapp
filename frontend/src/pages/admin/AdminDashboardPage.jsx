@@ -8,8 +8,8 @@ const KPI_CONFIG = [
     key: "totalRevenue",
     label: "💰 Total Revenue",
     format: (v) => `₱${v.toFixed(2)}`,
-    accent: "#C9A84C",
-    topColor: "#C9A84C",
+    accent: "#462C7D",
+    topColor: "#462C7D",
   },
   {
     key: "total",
@@ -46,15 +46,15 @@ function KpiCard({ label, value, accent, topColor }) {
     <div
       className="rounded-xl p-4"
       style={{
-        background: "#1E1235",
-        border: "1px solid rgba(201,168,76,0.18)",
+        background: "#FFFFFF",
+        border: "1px solid rgba(70,44,125,0.18)",
         borderTop: `3px solid ${topColor}`,
-        boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+        boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
       }}
     >
       <div
         className="text-[0.68rem] font-bold uppercase tracking-[0.5px] mb-2"
-        style={{ color: "#9080A8" }}
+        style={{ color: "#6F6B78" }}
       >
         {label}
       </div>
@@ -69,7 +69,7 @@ function KpiCard({ label, value, accent, topColor }) {
 }
 
 function toInputDate(date) {
-  return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function getReportRange(filter, customFrom, customTo) {
@@ -80,7 +80,7 @@ function getReportRange(filter, customFrom, customTo) {
     return { from: toInputDate(from), to: toInputDate(now) };
   }
   if (filter === "monthly") {
-    const from = new Date(now.getFullYear(), 0, 1);
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
     return { from: toInputDate(from), to: toInputDate(now) };
   }
   if (filter === "custom") return { from: customFrom, to: customTo };
@@ -155,8 +155,8 @@ function TrendChart({ data }) {
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
           <defs>
             <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#C9A84C" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#C9A84C" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#462C7D" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="#462C7D" stopOpacity="0.02" />
             </linearGradient>
           </defs>
           <polyline
@@ -167,7 +167,7 @@ function TrendChart({ data }) {
           <polyline
             points={points.join(" ")}
             fill="none"
-            stroke="#E8C96D"
+            stroke="#462C7D"
             strokeWidth="1.8"
             vectorEffect="non-scaling-stroke"
             strokeLinecap="round"
@@ -182,7 +182,7 @@ function TrendChart({ data }) {
                 cx={x}
                 cy={y}
                 r="1.6"
-                fill="#C9A84C"
+                fill="#462C7D"
                 vectorEffect="non-scaling-stroke"
               />
             );
@@ -193,13 +193,25 @@ function TrendChart({ data }) {
         {data
           .filter((_, idx) => data.length <= 12 || idx % Math.ceil(data.length / 12) === 0)
           .map((d) => (
-            <div key={d.label} className="text-center text-[0.65rem]" style={{ color: "#9080A8" }}>
-              <div className="font-bold" style={{ color: "#E8C96D" }}>{d.qty}</div>
+            <div key={d.label} className="text-center text-[0.65rem]" style={{ color: "#6F6B78" }}>
+              <div className="font-bold" style={{ color: "#462C7D" }}>{d.qty}</div>
               {d.label}
             </div>
           ))}
       </div>
     </div>
+  );
+}
+
+function OrderSourceCard({ online, walkIn, loading, filter }) {
+  return (
+    <section className="mb-6 rounded-xl border border-[rgba(70,44,125,0.18)] bg-white p-5 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><h3 className="font-display font-bold text-[#462C7D]">Order Sources</h3><p className="mt-0.5 text-xs capitalize text-[#6F6B78]">{filter} order totals</p></div>
+        <span className="rounded-full bg-[#F4F1F8] px-3 py-1 text-xs font-bold text-[#462C7D]">Online vs walk-in</span>
+      </div>
+      {loading ? <Spinner className="py-5" /> : <div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-[#F7F7FA] p-4"><p className="text-xs font-semibold text-[#6F6B78]">Total online orders</p><p className="mt-1 text-2xl font-bold text-[#462C7D]">{online}</p></div><div className="rounded-xl bg-[#F4F1F8] p-4"><p className="text-xs font-semibold text-[#6F6B78]">Total walk-in orders</p><p className="mt-1 text-2xl font-bold text-[#462C7D]">{walkIn}</p></div></div>}
+    </section>
   );
 }
 
@@ -270,11 +282,11 @@ export default function AdminDashboardPage() {
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#E8C96D" }}
+            style={{ color: "#462C7D" }}
           >
             Dashboard
           </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
             Live order and revenue overview
           </p>
         </div>
@@ -292,23 +304,30 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
+      <OrderSourceCard
+        online={report?.onlineOrderCount || 0}
+        walkIn={report?.walkInOrderCount || 0}
+        loading={reportLoading}
+        filter={filter}
+      />
+
       <div
         className="rounded-xl p-5 mb-6"
         style={{
-          background: "#1E1235",
-          border: "1px solid rgba(201,168,76,0.18)",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+          background: "#FFFFFF",
+          border: "1px solid rgba(70,44,125,0.18)",
+          boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
         }}
       >
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
           <div>
             <div
               className="font-display font-bold text-[1rem]"
-              style={{ color: "#E8C96D" }}
+              style={{ color: "#462C7D" }}
             >
               Order Quantity Trend
             </div>
-            <p className="text-[0.74rem]" style={{ color: "#9080A8" }}>
+            <p className="text-[0.74rem]" style={{ color: "#6F6B78" }}>
               Total ordered quantity based on completed transactions
             </p>
           </div>
@@ -320,9 +339,9 @@ export default function AdminDashboardPage() {
                 onClick={() => setFilter(mode)}
                 className="rounded-full px-3 py-1.5 text-[0.72rem] font-bold capitalize"
                 style={{
-                  background: filter === mode ? "#C9A84C" : "transparent",
-                  color: filter === mode ? "#1A0F2E" : "#9080A8",
-                  border: "1.5px solid rgba(201,168,76,0.25)",
+                  background: filter === mode ? "#462C7D" : "transparent",
+                  color: filter === mode ? "#FFFFFF" : "#6F6B78",
+                  border: "1.5px solid rgba(70,44,125,0.25)",
                 }}
               >
                 {mode}
@@ -357,19 +376,19 @@ export default function AdminDashboardPage() {
       <div
         className="rounded-xl p-5"
         style={{
-          background: "#1E1235",
-          border: "1px solid rgba(201,168,76,0.18)",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+          background: "#FFFFFF",
+          border: "1px solid rgba(70,44,125,0.18)",
+          boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
         }}
       >
         <div
           className="font-display font-bold text-[1rem] mb-4"
-          style={{ color: "#E8C96D" }}
+          style={{ color: "#462C7D" }}
         >
           Top Products
         </div>
         {(report?.topProducts || []).length === 0 ? (
-          <p className="text-[0.82rem]" style={{ color: "#9080A8" }}>
+          <p className="text-[0.82rem]" style={{ color: "#6F6B78" }}>
             No completed product sales for this filter.
           </p>
         ) : (
@@ -379,17 +398,17 @@ export default function AdminDashboardPage() {
                 key={product.productId}
                 className="rounded-lg p-3"
                 style={{
-                  background: "#261748",
-                  border: "1px solid rgba(201,168,76,0.14)",
+                  background: "#F4F1F8",
+                  border: "1px solid rgba(70,44,125,0.14)",
                 }}
               >
-                <div className="text-[0.68rem] font-bold" style={{ color: "#9080A8" }}>
+                <div className="text-[0.68rem] font-bold" style={{ color: "#6F6B78" }}>
                   #{idx + 1}
                 </div>
-                <div className="font-bold" style={{ color: "#F0E8D8" }}>
+                <div className="font-bold" style={{ color: "#17151D" }}>
                   {product.productName || product.productId}
                 </div>
-                <div className="text-[0.78rem] mt-1" style={{ color: "#E8C96D" }}>
+                <div className="text-[0.78rem] mt-1" style={{ color: "#462C7D" }}>
                   {product.qty} sold · ₱{Number(product.revenue || 0).toFixed(2)}
                 </div>
               </div>

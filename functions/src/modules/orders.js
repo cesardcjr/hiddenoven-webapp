@@ -16,6 +16,7 @@ const {
   isValidTransition,
 } = require("../utils/validate");
 const { verifyToken, requireRole } = require("../middleware/auth");
+const { isPickupSlotAllowed } = require("../utils/pickupAvailability");
 
 const router = express.Router();
 
@@ -100,8 +101,7 @@ router.post("/", async (req, res, next) => {
       };
     });
 
-    // Auto-accept rule: total qty < 20 skips NEW → goes straight to PAYMENT_REVIEW
-    const initialStatus = totalQty < 20 ? "PAYMENT_REVIEW" : "NEW";
+    const initialStatus = "NEW";
 
     const orderNo = await generateOrderNumber();
     const orderRef = db.collection("orders").doc();
@@ -129,6 +129,13 @@ router.post("/", async (req, res, next) => {
       }
 
       const config = configSnap.data();
+      if (!isPickupSlotAllowed(pickupDate, config.startMinutes)) {
+        const error = new Error(
+          "This pickup time is no longer available. Choose a slot at least 90 minutes ahead, or select tomorrow after 4 PM.",
+        );
+        error.status = 400;
+        throw error;
+      }
       let activeCount = counterSnap.exists
         ? counterSnap.data().activeCount || 0
         : null;
@@ -176,8 +183,10 @@ router.post("/", async (req, res, next) => {
         pickupConfigId,
         pickupLabel: config.label,
         status: initialStatus,
+        orderType: "ONLINE",
         subtotal,
         total: subtotal,
+        totalQty,
         stockDate,
         createdAt: FieldValue.serverTimestamp(),
         verifiedBy: null,
@@ -311,7 +320,7 @@ router.post("/with-payment", async (req, res, next) => {
       };
     });
 
-    const initialStatus = totalQty < 20 ? "PAYMENT_REVIEW" : "NEW";
+    const initialStatus = "NEW";
     if (paidAmount < subtotal) {
       return res
         .status(400)
@@ -349,6 +358,13 @@ router.post("/with-payment", async (req, res, next) => {
       }
 
       const config = configSnap.data();
+      if (!isPickupSlotAllowed(pickupDate, config.startMinutes)) {
+        const error = new Error(
+          "This pickup time is no longer available. Choose a slot at least 90 minutes ahead, or select tomorrow after 4 PM.",
+        );
+        error.status = 400;
+        throw error;
+      }
       let activeCount = counterSnap.exists
         ? counterSnap.data().activeCount || 0
         : null;
@@ -396,8 +412,10 @@ router.post("/with-payment", async (req, res, next) => {
         pickupConfigId,
         pickupLabel: config.label,
         status: initialStatus,
+        orderType: "ONLINE",
         subtotal,
         total: subtotal,
+        totalQty,
         paymentProvider: paymentProvider.trim(),
         paymentAmount: paidAmount,
         paymentRefNumber: refNumber.trim(),

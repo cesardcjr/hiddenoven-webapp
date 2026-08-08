@@ -50,21 +50,21 @@ function btnStyle(v) {
     cursor: "pointer",
     border: "none",
     transition: "all 0.18s",
-    fontFamily: "Inter,sans-serif",
+    fontFamily: "Google Sans,Arial,sans-serif",
   };
   if (v === "outline")
     return {
       ...b,
       background: "transparent",
-      color: "#F0E8D8",
-      border: "1.5px solid rgba(201,168,76,0.3)",
+      color: "#17151D",
+      border: "1.5px solid rgba(70,44,125,0.3)",
     };
   if (v === "ghost")
     return {
       ...b,
       background: "transparent",
-      color: "#9080A8",
-      border: "1.5px solid rgba(201,168,76,0.18)",
+      color: "#6F6B78",
+      border: "1.5px solid rgba(70,44,125,0.18)",
     };
   if (v === "danger") return { ...b, background: "#E05252", color: "#fff" };
   return b;
@@ -167,12 +167,12 @@ export default function AdminPickupTimesPage() {
 
   const inputStyle = {
     width: "100%",
-    background: "rgba(255,255,255,0.05)",
-    border: "1.5px solid rgba(201,168,76,0.25)",
+    background: "#FFFFFF",
+    border: "1.5px solid rgba(70,44,125,0.25)",
     borderRadius: "8px",
-    color: "#F0E8D8",
+    color: "#17151D",
     fontSize: "0.87rem",
-    fontFamily: "Inter,sans-serif",
+    fontFamily: "Google Sans,Arial,sans-serif",
     outline: "none",
     padding: "11px 13px",
     transition: "border 0.2s, background 0.2s",
@@ -189,11 +189,11 @@ export default function AdminPickupTimesPage() {
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#E8C96D" }}
+            style={{ color: "#462C7D" }}
           >
             Pickup Time Slots
           </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
             Define available pickup windows · Shop hours 10:00 AM – 6:00 PM
           </p>
         </div>
@@ -206,28 +206,27 @@ export default function AdminPickupTimesPage() {
       <div
         className="rounded-xl p-4 mb-5 text-[0.8rem] leading-relaxed"
         style={{
-          background: "rgba(201,168,76,0.07)",
-          border: "1px solid rgba(201,168,76,0.2)",
+          background: "rgba(70,44,125,0.07)",
+          border: "1px solid rgba(70,44,125,0.2)",
         }}
       >
-        <p className="font-semibold mb-1" style={{ color: "#E8C96D" }}>
-          📋 Ordering cutoff rules
+        <p className="font-semibold mb-1" style={{ color: "#462C7D" }}>
+          Pickup availability rules
         </p>
-        <p style={{ color: "rgba(240,232,220,0.65)" }}>
-          <strong style={{ color: "#F0E8D8" }}>Before 12:00 PM</strong> →
-          customer may pick up same day from{" "}
-          <strong style={{ color: "#F0E8D8" }}>12:00 PM onwards.</strong>
+        <p style={{ color: "rgba(23,21,29,0.65)" }}>
+          Same-day pickup slots must be at least{" "}
+          <strong style={{ color: "#17151D" }}>1.5 hours after the order time.</strong>
         </p>
-        <p style={{ color: "rgba(240,232,220,0.65)" }}>
-          <strong style={{ color: "#F0E8D8" }}>12:00 PM or later</strong> →
-          earliest pickup is{" "}
-          <strong style={{ color: "#F0E8D8" }}>
+        <p style={{ color: "rgba(23,21,29,0.65)" }}>
+          At <strong style={{ color: "#17151D" }}>4:00 PM or later</strong>,
+          the earliest pickup date is{" "}
+          <strong style={{ color: "#17151D" }}>
             10:00 AM the following day.
           </strong>
         </p>
         <p
           className="mt-1"
-          style={{ color: "rgba(240,232,220,0.45)", fontSize: "0.73rem" }}
+          style={{ color: "rgba(23,21,29,0.45)", fontSize: "0.73rem" }}
         >
           Slots fully booked for a given date are automatically hidden from
           customers.
@@ -237,17 +236,17 @@ export default function AdminPickupTimesPage() {
       {loading ? (
         <Spinner className="py-20" />
       ) : configs.length === 0 ? (
-        <div className="text-center py-20" style={{ color: "#9080A8" }}>
+        <div className="text-center py-20" style={{ color: "#6F6B78" }}>
           <div className="text-4xl mb-3 opacity-40">🕐</div>
           <p className="text-[0.86rem]">No time slots configured yet.</p>
-          <p className="text-[0.75rem] mt-1" style={{ color: "#5A4870" }}>
+          <p className="text-[0.75rem] mt-1" style={{ color: "#AAA6B0" }}>
             Add your first time slot to allow customers to book pickups.
           </p>
         </div>
       ) : (
         <div
           className="overflow-x-auto rounded-xl"
-          style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}
+          style={{ boxShadow: "0 2px 12px rgba(23,21,29,0.09)" }}
         >
           <table
             className="w-full border-collapse"
@@ -265,9 +264,9 @@ export default function AdminPickupTimesPage() {
                         fontWeight: 700,
                         textTransform: "uppercase",
                         letterSpacing: "0.5px",
-                        color: "#9080A8",
-                        borderBottom: "2px solid rgba(201,168,76,0.18)",
-                        background: "#1E1235",
+                        color: "#6F6B78",
+                        borderBottom: "2px solid rgba(70,44,125,0.18)",
+                        background: "#FFFFFF",
                       }}
                     >
                       {h}
@@ -280,24 +279,24 @@ export default function AdminPickupTimesPage() {
               {configs.map((cfg) => (
                 <tr
                   key={cfg.configId}
-                  style={{ borderBottom: "1px solid rgba(201,168,76,0.09)" }}
+                  style={{ borderBottom: "1px solid rgba(70,44,125,0.09)" }}
                   onMouseEnter={(e) =>
                     Array.from(e.currentTarget.cells).forEach(
-                      (td) => (td.style.background = "rgba(201,168,76,0.05)"),
+                      (td) => (td.style.background = "rgba(70,44,125,0.05)"),
                     )
                   }
                   onMouseLeave={(e) =>
                     Array.from(e.currentTarget.cells).forEach(
-                      (td) => (td.style.background = "#1E1235"),
+                      (td) => (td.style.background = "#FFFFFF"),
                     )
                   }
                 >
                   {/* Time window */}
                   <td
                     className="px-4 py-3"
-                    style={{ background: "#1E1235", verticalAlign: "middle" }}
+                    style={{ background: "#FFFFFF", verticalAlign: "middle" }}
                   >
-                    <span className="font-bold" style={{ color: "#E8C96D" }}>
+                    <span className="font-bold" style={{ color: "#462C7D" }}>
                       {cfg.label}
                     </span>
                   </td>
@@ -306,13 +305,13 @@ export default function AdminPickupTimesPage() {
                   <td
                     className="px-4 py-3 font-semibold"
                     style={{
-                      background: "#1E1235",
-                      color: cfg.remainingToday <= 0 ? "#E05252" : "#F0E8D8",
+                      background: "#FFFFFF",
+                      color: cfg.remainingToday <= 0 ? "#E05252" : "#17151D",
                       verticalAlign: "middle",
                     }}
                   >
                     {cfg.remainingToday ?? cfg.maxOrders} / {cfg.maxOrders} left
-                    <div className="text-[0.68rem] font-normal" style={{ color: "#9080A8" }}>
+                    <div className="text-[0.68rem] font-normal" style={{ color: "#6F6B78" }}>
                       {cfg.bookedToday || 0} booked today
                     </div>
                   </td>
@@ -320,7 +319,7 @@ export default function AdminPickupTimesPage() {
                   {/* Status badge */}
                   <td
                     className="px-4 py-3"
-                    style={{ background: "#1E1235", verticalAlign: "middle" }}
+                    style={{ background: "#FFFFFF", verticalAlign: "middle" }}
                   >
                     <span
                       className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[0.68rem] font-bold"
@@ -332,9 +331,9 @@ export default function AdminPickupTimesPage() {
                               border: "1px solid rgba(61,189,135,0.3)",
                             }
                           : {
-                              background: "rgba(255,255,255,0.05)",
-                              color: "#9080A8",
-                              border: "1px solid rgba(201,168,76,0.09)",
+                              background: "#FFFFFF",
+                              color: "#6F6B78",
+                              border: "1px solid rgba(70,44,125,0.09)",
                             }
                       }
                     >
@@ -345,20 +344,20 @@ export default function AdminPickupTimesPage() {
                   {/* Actions */}
                   <td
                     className="px-4 py-3"
-                    style={{ background: "#1E1235", verticalAlign: "middle" }}
+                    style={{ background: "#FFFFFF", verticalAlign: "middle" }}
                   >
                     <div className="flex items-center gap-2">
                       <button
                         style={btnStyle("outline")}
                         onClick={() => openEdit(cfg)}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = "#C9A84C";
-                          e.currentTarget.style.color = "#C9A84C";
+                          e.currentTarget.style.borderColor = "#462C7D";
+                          e.currentTarget.style.color = "#462C7D";
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.borderColor =
-                            "rgba(201,168,76,0.3)";
-                          e.currentTarget.style.color = "#F0E8D8";
+                            "rgba(70,44,125,0.3)";
+                          e.currentTarget.style.color = "#17151D";
                         }}
                       >
                         Edit
@@ -367,13 +366,13 @@ export default function AdminPickupTimesPage() {
                         style={btnStyle("ghost")}
                         onClick={() => handleToggle(cfg)}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = "#9080A8";
-                          e.currentTarget.style.color = "#F0E8D8";
+                          e.currentTarget.style.borderColor = "#6F6B78";
+                          e.currentTarget.style.color = "#17151D";
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.borderColor =
-                            "rgba(201,168,76,0.18)";
-                          e.currentTarget.style.color = "#9080A8";
+                            "rgba(70,44,125,0.18)";
+                          e.currentTarget.style.color = "#6F6B78";
                         }}
                       >
                         {cfg.isActive ? "Deactivate" : "Activate"}
@@ -393,7 +392,7 @@ export default function AdminPickupTimesPage() {
         onClose={() => setModalOpen(false)}
         title={editing ? "Edit Time Slot" : "Add Time Slot"}
       >
-        <p className="text-[0.78rem] mb-5" style={{ color: "#9080A8" }}>
+        <p className="text-[0.78rem] mb-5" style={{ color: "#6F6B78" }}>
           {editing
             ? "Update the maximum orders for this time window."
             : "Select a 30-minute pickup window within shop hours (10:00 AM – 6:00 PM)."}
@@ -407,9 +406,9 @@ export default function AdminPickupTimesPage() {
             <div
               className="px-3 py-2.5 rounded-lg text-[0.87rem] font-semibold"
               style={{
-                background: "rgba(201,168,76,0.08)",
-                border: "1px solid rgba(201,168,76,0.2)",
-                color: "#E8C96D",
+                background: "rgba(70,44,125,0.08)",
+                border: "1px solid rgba(70,44,125,0.2)",
+                color: "#462C7D",
               }}
             >
               {editing.label}
@@ -420,15 +419,15 @@ export default function AdminPickupTimesPage() {
               onChange={(e) => setForm({ ...form, startTime: e.target.value })}
               style={{ ...inputStyle }}
               onFocus={(e) => {
-                e.target.style.borderColor = "#C9A84C";
-                e.target.style.background = "rgba(201,168,76,0.06)";
+                e.target.style.borderColor = "#462C7D";
+                e.target.style.background = "rgba(70,44,125,0.06)";
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = "rgba(201,168,76,0.25)";
-                e.target.style.background = "rgba(255,255,255,0.05)";
+                e.target.style.borderColor = "rgba(70,44,125,0.25)";
+                e.target.style.background = "#FFFFFF";
               }}
             >
-              <option value="" style={{ background: "#261748" }}>
+              <option value="" style={{ background: "#F4F1F8" }}>
                 — Select a time slot —
               </option>
               {SLOT_OPTIONS.map((opt) => (
@@ -437,8 +436,8 @@ export default function AdminPickupTimesPage() {
                   value={opt.value}
                   disabled={takenTimes.has(opt.value)}
                   style={{
-                    background: "#261748",
-                    color: takenTimes.has(opt.value) ? "#5A4870" : "#F0E8D8",
+                    background: "#F4F1F8",
+                    color: takenTimes.has(opt.value) ? "#AAA6B0" : "#17151D",
                   }}
                 >
                   {formatTime(opt.value)}
@@ -461,15 +460,15 @@ export default function AdminPickupTimesPage() {
             placeholder="e.g. 10"
             style={inputStyle}
             onFocus={(e) => {
-              e.target.style.borderColor = "#C9A84C";
-              e.target.style.background = "rgba(201,168,76,0.06)";
+              e.target.style.borderColor = "#462C7D";
+              e.target.style.background = "rgba(70,44,125,0.06)";
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = "rgba(201,168,76,0.25)";
-              e.target.style.background = "rgba(255,255,255,0.05)";
+              e.target.style.borderColor = "rgba(70,44,125,0.25)";
+              e.target.style.background = "#FFFFFF";
             }}
           />
-          <p className="text-[0.72rem] mt-1.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.72rem] mt-1.5" style={{ color: "#6F6B78" }}>
             Once this limit is reached on a given day, the slot is hidden from
             customers.
           </p>
@@ -477,7 +476,7 @@ export default function AdminPickupTimesPage() {
 
         <div
           className="flex gap-3 justify-end pt-3"
-          style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
+          style={{ borderTop: "1px solid rgba(70,44,125,0.12)" }}
         >
           <button onClick={() => setModalOpen(false)} className="btn-secondary">
             Cancel

@@ -8,6 +8,7 @@ const productsRouter = require("./modules/products");
 const staffRouter = require("./modules/staff");
 const paymentsRouter = require("./modules/payments");
 const pickupTimesRouter = require("./modules/pickupTime");
+const walkInOrdersRouter = require("./modules/walkInOrders");
 
 const { ensureDefaultUsers } = require("./bootstrap/createDefaultUsers");
 const { verifyToken, requireRole } = require("./middleware/auth");
@@ -38,6 +39,7 @@ app.use("/api/reports", verifyToken, reportsRouter);
 app.use("/api/products", verifyToken, productsRouter);
 app.use("/api/staff", verifyToken, staffRouter);
 app.use("/api/payments", verifyToken, paymentsRouter);
+app.use("/api/walk-in-orders", verifyToken, walkInOrdersRouter);
 
 // ── Admin bootstrap ────────────────────────────────────────────────────────────
 app.post("/api/bootstrap-users", verifyToken, async (req, res) => {

@@ -28,7 +28,7 @@ function btnStyle(variant) {
     cursor: "pointer",
     border: "none",
     transition: "all 0.18s",
-    fontFamily: "Inter,sans-serif",
+    fontFamily: "Google Sans,Arial,sans-serif",
   };
 
   if (variant === "danger") return { ...base, background: "#E05252", color: "#fff" };
@@ -36,14 +36,14 @@ function btnStyle(variant) {
     return {
       ...base,
       background: "transparent",
-      color: "#9080A8",
-      border: "1.5px solid rgba(201,168,76,0.18)",
+      color: "#6F6B78",
+      border: "1.5px solid rgba(70,44,125,0.18)",
     };
   return {
     ...base,
     background: "transparent",
-    color: "#F0E8D8",
-    border: "1.5px solid rgba(201,168,76,0.3)",
+    color: "#17151D",
+    border: "1.5px solid rgba(70,44,125,0.3)",
   };
 }
 
@@ -204,11 +204,11 @@ export default function AdminPaymentsPage() {
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#E8C96D" }}
+            style={{ color: "#462C7D" }}
           >
             Payment Modes
           </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
             Manage the payment options shown to customers
           </p>
         </div>
@@ -226,14 +226,14 @@ export default function AdminPaymentsPage() {
               key={mode.modeId}
               className="flex flex-col overflow-hidden rounded-xl"
               style={{
-                background: "#1E1235",
-                border: "1px solid rgba(201,168,76,0.18)",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+                background: "#FFFFFF",
+                border: "1px solid rgba(70,44,125,0.18)",
+                boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
               }}
             >
               <div
                 className="aspect-square flex items-center justify-center relative"
-                style={{ background: "#261748" }}
+                style={{ background: "#F4F1F8" }}
               >
                 {mode.qrImageUrl ? (
                   <img
@@ -242,7 +242,7 @@ export default function AdminPaymentsPage() {
                     className="w-full h-full object-contain p-3"
                   />
                 ) : (
-                  <span className="text-[0.75rem]" style={{ color: "#9080A8" }}>
+                  <span className="text-[0.75rem]" style={{ color: "#6F6B78" }}>
                     No QR
                   </span>
                 )}
@@ -256,9 +256,9 @@ export default function AdminPaymentsPage() {
                           border: "1px solid rgba(61,189,135,0.3)",
                         }
                       : {
-                          background: "rgba(255,255,255,0.05)",
-                          color: "#9080A8",
-                          border: "1px solid rgba(201,168,76,0.09)",
+                          background: "#FFFFFF",
+                          color: "#6F6B78",
+                          border: "1px solid rgba(70,44,125,0.09)",
                         }
                   }
                 >
@@ -269,21 +269,21 @@ export default function AdminPaymentsPage() {
               <div className="flex flex-col flex-1 p-3 md:p-4">
                 <div
                   className="font-bold text-[0.84rem] md:text-[0.9rem] mb-1 truncate"
-                  style={{ color: "#F0E8D8" }}
+                  style={{ color: "#17151D" }}
                 >
                   {mode.provider}
                 </div>
                 {mode.accountName && (
                   <div
                     className="text-[0.7rem] truncate"
-                    style={{ color: "#9080A8" }}
+                    style={{ color: "#6F6B78" }}
                   >
                     {mode.accountName}
                   </div>
                 )}
                 <div
                   className="text-[0.72rem] break-all mt-1"
-                  style={{ color: "#C9A84C" }}
+                  style={{ color: "#462C7D" }}
                 >
                   {mode.accountNumber}
                 </div>
@@ -306,7 +306,7 @@ export default function AdminPaymentsPage() {
           {modes.length === 0 && (
             <div
               className="col-span-full text-center py-20"
-              style={{ color: "#9080A8" }}
+              style={{ color: "#6F6B78" }}
             >
               <p className="text-[0.86rem]">No payment modes yet.</p>
             </div>
@@ -343,8 +343,8 @@ export default function AdminPaymentsPage() {
           <div
             className="rounded-lg p-3"
             style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1.5px solid rgba(201,168,76,0.18)",
+              background: "#FFFFFF",
+              border: "1.5px solid rgba(70,44,125,0.18)",
             }}
           >
             {form.preview && (
@@ -352,7 +352,7 @@ export default function AdminPaymentsPage() {
                 src={form.preview}
                 alt="QR preview"
                 className="w-32 h-32 object-contain rounded-lg mb-3"
-                style={{ background: "#261748" }}
+                style={{ background: "#F4F1F8" }}
               />
             )}
             <input
@@ -360,7 +360,7 @@ export default function AdminPaymentsPage() {
               accept="image/*"
               onChange={handleQrChange}
               className="text-[0.82rem] w-full"
-              style={{ color: "#9080A8" }}
+              style={{ color: "#6F6B78" }}
             />
           </div>
         </div>
@@ -377,7 +377,7 @@ export default function AdminPaymentsPage() {
             />
             <div
               className="w-9 h-5 rounded-full transition-colors duration-200"
-              style={{ background: form.isActive ? "#3DBD87" : "#5A4870" }}
+              style={{ background: form.isActive ? "#3DBD87" : "#AAA6B0" }}
             >
               <div
                 className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
@@ -391,7 +391,7 @@ export default function AdminPaymentsPage() {
           </label>
           <span
             className="text-[0.83rem] font-semibold"
-            style={{ color: "#F0E8D8" }}
+            style={{ color: "#17151D" }}
           >
             Active and visible to customers
           </span>
@@ -399,7 +399,7 @@ export default function AdminPaymentsPage() {
 
         <div
           className="flex gap-3 justify-end pt-2"
-          style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
+          style={{ borderTop: "1px solid rgba(70,44,125,0.12)" }}
         >
           <button onClick={() => setModalOpen(false)} className="btn-secondary">
             Cancel

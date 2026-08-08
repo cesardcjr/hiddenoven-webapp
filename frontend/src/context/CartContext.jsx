@@ -5,13 +5,14 @@ const CartContext = createContext(null);
 function cartReducer(state, action) {
   switch (action.type) {
     case "ADD": {
+      const quantity = Math.max(1, Number(action.qty) || 1);
       const existing = state.find((i) => i.productId === action.product.productId);
       if (existing) {
         return state.map((i) =>
-          i.productId === action.product.productId ? { ...i, qty: i.qty + 1 } : i
+          i.productId === action.product.productId ? { ...i, qty: i.qty + quantity } : i
         );
       }
-      return [...state, { ...action.product, qty: 1 }];
+      return [...state, { ...action.product, qty: quantity }];
     }
     case "REMOVE":
       return state.filter((i) => i.productId !== action.productId);
@@ -29,7 +30,7 @@ function cartReducer(state, action) {
 export function CartProvider({ children }) {
   const [items, dispatch] = useReducer(cartReducer, []);
 
-  const addItem    = (product)              => dispatch({ type: "ADD", product });
+  const addItem    = (product, qty = 1)     => dispatch({ type: "ADD", product, qty });
   const removeItem = (productId)            => dispatch({ type: "REMOVE", productId });
   const updateQty  = (productId, qty)       => dispatch({ type: "UPDATE_QTY", productId, qty });
   const clearCart  = ()                     => dispatch({ type: "CLEAR" });

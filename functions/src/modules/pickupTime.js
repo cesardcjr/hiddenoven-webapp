@@ -1,6 +1,7 @@
 const express = require("express");
 const { FieldValue } = require("firebase-admin/firestore");
 const { db, writeAuditLog, getPHTDateString } = require("../utils/db");
+const { getPickupAvailability } = require("../utils/pickupAvailability");
 const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -18,46 +19,6 @@ function timeToMinutes(t) {
 const SHOP_OPEN_MINUTES = 10 * 60; // 600
 const SHOP_CLOSE_MINUTES = 18 * 60; // 1080
 const SLOT_DURATION = 30; // minutes
-const PH_OFFSET_MS = 8 * 3600000; // UTC+8 in ms
-
-function nowPHT() {
-  return new Date(Date.now() + PH_OFFSET_MS);
-}
-
-/**
- * Given the current Philippine time, return the earliest available pickup date
- * and the minimum start time (minutes from midnight) on that date.
- *
- * Rules:
- *  - Order placed 12:00 AM – 11:59 AM  → same day, slots from 12:00 PM onwards
- *  - Order placed 12:00 PM – 11:59 PM  → next day,  slots from 10:00 AM onwards
- */
-function getEarliestWindow() {
-  const pht = nowPHT();
-  const hourPHT = pht.getUTCHours(); // correct because we offset manually
-  const minPHT = pht.getUTCMinutes();
-  const totalMin = hourPHT * 60 + minPHT;
-
-  let date;
-  let minStartMinutes;
-
-  if (totalMin < 12 * 60) {
-    // Before noon → same day, from 12:00 PM
-    date = pht;
-    minStartMinutes = 12 * 60;
-  } else {
-    // Noon or after → next day, from 10:00 AM
-    date = new Date(pht.getTime() + 86400000);
-    minStartMinutes = SHOP_OPEN_MINUTES;
-  }
-
-  const yyyy = date.getUTCFullYear();
-  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(date.getUTCDate()).padStart(2, "0");
-
-  return { dateStr: `${yyyy}-${mm}-${dd}`, minStartMinutes };
-}
-
 // ─── GET /api/pickup-times/configs — list all configs (admin) ────────────────
 router.get("/configs", onlyAdmin, async (req, res, next) => {
   try {
@@ -214,7 +175,7 @@ router.get("/available", async (req, res, next) => {
         .json({ error: "date query param required (YYYY-MM-DD)." });
     }
 
-    const { dateStr: earliestDate, minStartMinutes } = getEarliestWindow();
+    const { earliestDate, minStartMinutes } = getPickupAvailability();
 
     // Reject dates before the earliest available date
     if (date < earliestDate) {
@@ -274,13 +235,12 @@ router.get("/available", async (req, res, next) => {
 // Returns the earliest and latest selectable pickup dates for the date picker.
 router.get("/available-dates", async (req, res, next) => {
   try {
-    const { dateStr: earliestDate } = getEarliestWindow();
+    const { earliestDate, sameDayCutoffReached } = getPickupAvailability();
 
     // Allow booking up to 14 days ahead
-    const latest = new Date(Date.now() + PH_OFFSET_MS + 14 * 86400000);
-    const latestDate = `${latest.getUTCFullYear()}-${String(latest.getUTCMonth() + 1).padStart(2, "0")}-${String(latest.getUTCDate()).padStart(2, "0")}`;
+    const latestDate = getPHTDateString(new Date(Date.now() + 14 * 86400000));
 
-    res.json({ earliestDate, latestDate });
+    res.json({ earliestDate, latestDate, sameDayCutoffReached });
   } catch (err) {
     next(err);
   }

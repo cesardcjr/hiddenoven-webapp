@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { PasswordInput } from "../components/ui/FormField";
+import { BrandMark } from "../components/ui/BrandMark";
 
 export default function LoginPage({ portalRole }) {
   const { login } = useAuth();
@@ -10,122 +11,39 @@ export default function LoginPage({ portalRole }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
   const label = portalRole === "admin" ? "Admin" : "Staff";
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  async function handleSubmit(event) {
+    event.preventDefault(); setError(""); setLoading(true);
     try {
       const role = await login(email, password);
-      if (role !== portalRole) {
-        setError("You don't have access to this portal.");
-        return;
-      }
+      if (role !== portalRole) { setError("You don’t have access to this portal."); return; }
       navigate(portalRole === "admin" ? "/admin/dashboard" : "/staff/orders");
-    } catch {
-      setError("Invalid email or password.");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Invalid email or password."); } finally { setLoading(false); }
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-5"
-      style={{
-        background:
-          "radial-gradient(ellipse at 30% 50%, #261748 0%, #0D0820 70%)",
-      }}
-    >
-      <div className="w-full max-w-sm">
-        {/* Brand mark */}
-        <div className="text-center mb-7">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 font-display font-bold text-xl"
-            style={{
-              background: "rgba(201,168,76,0.12)",
-              border: "1px solid rgba(201,168,76,0.3)",
-              color: "#C9A84C",
-              boxShadow: "0 0 24px rgba(201,168,76,0.2)",
-              animation: "loginGlow 3s ease-in-out infinite alternate",
-            }}
-          >
-            HO
+    <main className="auth-ui grid min-h-screen lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="hidden bg-[#462C7D] p-10 text-white lg:flex lg:flex-col lg:justify-between">
+        <BrandMark light portal={label} to="/" />
+        <div className="max-w-md"><p className="text-xs font-bold uppercase tracking-[0.18em] text-white/60">Welcome back</p><h1 className="mt-4 text-4xl font-bold leading-tight text-white">Everything you need to keep orders moving.</h1><p className="mt-4 text-sm leading-6 text-white/70">A focused workspace for managing products, payments, pickup schedules, and customer orders.</p></div>
+        <p className="text-xs text-white/50">The Hidden Oven · Secure portal access</p>
+      </section>
+      <section className="flex items-center justify-center p-5 sm:p-10">
+        <div className="w-full max-w-md">
+          <div className="mb-8 lg:hidden"><BrandMark portal={label} /></div>
+          <div className="auth-card p-6 sm:p-8">
+            <p className="page-eyebrow">{label} portal</p><h1 className="text-3xl font-bold">Welcome back</h1><p className="mb-7 mt-2 text-sm text-[#6F6B78]">Sign in with your authorized {label.toLowerCase()} account.</p>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4"><label className="label" htmlFor="portal-email">Email</label><input id="portal-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={`${label.toLowerCase()}@hiddenoven.com`} required autoFocus className="input" autoComplete="email" /></div>
+              <PasswordInput label="Password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" />
+              {error && <p className="mb-4 rounded-xl bg-[#FFF1F0] p-3 text-sm text-[#B42318]" role="alert">{error}</p>}
+              <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? "Signing in…" : "Sign in"}</button>
+            </form>
           </div>
-          <h1
-            className="font-display text-[1.4rem] font-bold"
-            style={{ color: "#E8C96D" }}
-          >
-            The Hidden Oven
-          </h1>
-          <p className="text-[0.78rem] mt-1" style={{ color: "#9080A8" }}>
-            {label} Portal
-          </p>
+          <button type="button" onClick={() => navigate("/")} className="btn-ghost mx-auto mt-5 flex">← Return to customer site</button>
         </div>
-
-        {/* Card */}
-        <div
-          style={{
-            background: "#1E1235",
-            border: "1px solid rgba(201,168,76,0.18)",
-            borderRadius: "18px",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.65)",
-            padding: "28px",
-          }}
-        >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
-            <div>
-              <label className="label">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="staff@hiddenoven.com"
-                required
-                autoFocus
-                className="input"
-              />
-            </div>
-
-            {/* Password */}
-            <PasswordInput
-              label="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-
-            {/* Error */}
-            {error && (
-              <p
-                className="text-[0.77rem] text-center"
-                style={{ color: "#E05252" }}
-              >
-                {error}
-              </p>
-            )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full py-2.5 text-[0.87rem]"
-            >
-              {loading ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes loginGlow {
-          from { box-shadow: 0 0 10px rgba(201,168,76,0.2); }
-          to   { box-shadow: 0 0 28px rgba(201,168,76,0.45); }
-        }
-      `}</style>
-    </div>
+      </section>
+    </main>
   );
 }
