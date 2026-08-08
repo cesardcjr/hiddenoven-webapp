@@ -46,14 +46,26 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
     }
     const { fromDate, toDate } = range;
 
-    const ordersSnap = await db
-      .collection("orders")
-      .where("status", "==", "COMPLETED")
-      .where("createdAt", ">=", Timestamp.fromDate(fromDate))
-      .where("createdAt", "<=", Timestamp.fromDate(toDate))
-      .get();
+    const [ordersSnap, sourceOrdersSnap] = await Promise.all([
+      db
+        .collection("orders")
+        .where("status", "==", "COMPLETED")
+        .where("createdAt", ">=", Timestamp.fromDate(fromDate))
+        .where("createdAt", "<=", Timestamp.fromDate(toDate))
+        .get(),
+      db
+        .collection("orders")
+        .where("createdAt", ">=", Timestamp.fromDate(fromDate))
+        .where("createdAt", "<=", Timestamp.fromDate(toDate))
+        .get(),
+    ]);
 
     const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const sourceOrders = sourceOrdersSnap.docs.map((d) => d.data());
+    const walkInOrderCount = sourceOrders.filter(
+      (order) => order.orderType === "WALK_IN",
+    ).length;
+    const onlineOrderCount = sourceOrders.length - walkInOrderCount;
 
     const productCounts = {};
     const qtyByOrder = {};
@@ -95,6 +107,7 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
         pickedUpAt: order.pickedUpAt || null,
         total: order.total || 0,
         totalQty: qtyByOrder[order.id] || 0,
+        orderType: order.orderType || "ONLINE",
       }))
       .sort((a, b) => {
         const aTime = a.orderDate?.toMillis?.() || 0;
@@ -106,6 +119,8 @@ router.get("/", requireRole("admin"), async (req, res, next) => {
       from,
       to,
       orderCount: orders.length,
+      walkInOrderCount,
+      onlineOrderCount,
       totalRevenue,
       topProducts,
       transactions,

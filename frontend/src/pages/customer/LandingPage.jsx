@@ -5,228 +5,62 @@ import { Modal } from "../../components/ui/Modal";
 import { TextInput } from "../../components/ui/FormField";
 import hiddenOvenLogo from "../../images/hidden-oven-logo.jpg";
 
-const imageModules = import.meta.glob("../../images/*.{jpg,jpeg,png,webp}", {
-  eager: true,
-  import: "default",
-});
+const imageModules = import.meta.glob("../../images/*.{jpg,jpeg,png,webp}", { eager: true, import: "default" });
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const images = useMemo(() => Object.values(imageModules), []);
+  const images = useMemo(() => Object.values(imageModules).filter((image) => image !== hiddenOvenLogo), []);
   const [active, setActive] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
   const [trackOpen, setTrackOpen] = useState(false);
-  const [trackForm, setTrackForm] = useState({
-    orderNo: "",
-    customerName: "",
-    contactNumber: "",
-  });
+  const [trackForm, setTrackForm] = useState({ orderNo: "", customerName: "", contactNumber: "" });
 
   useEffect(() => {
     if (images.length <= 1) return undefined;
-    const id = window.setInterval(
-      () => setActive((idx) => (idx + 1) % images.length),
-      2000,
-    );
-    return () => window.clearInterval(id);
+    const interval = window.setInterval(() => setActive((index) => (index + 1) % images.length), 4500);
+    return () => window.clearInterval(interval);
   }, [images.length]);
 
-  function moveSlide(delta) {
-    setActive((idx) => (idx + delta + images.length) % images.length);
-  }
-
-  function handleTouchEnd(e) {
+  function moveSlide(delta) { setActive((index) => (index + delta + images.length) % images.length); }
+  function handleTouchEnd(event) {
     if (touchStart === null || images.length <= 1) return;
-    const delta = e.changedTouches[0].clientX - touchStart;
+    const delta = event.changedTouches[0].clientX - touchStart;
     if (Math.abs(delta) > 40) moveSlide(delta > 0 ? -1 : 1);
     setTouchStart(null);
   }
-
   function handleTrackConfirm() {
     const params = new URLSearchParams();
-    if (trackForm.orderNo.trim()) {
-      params.set("orderNo", trackForm.orderNo.trim());
-    } else {
-      if (!trackForm.customerName.trim() || !trackForm.contactNumber.trim())
-        return;
+    if (trackForm.orderNo.trim()) params.set("orderNo", trackForm.orderNo.trim());
+    else {
+      if (!trackForm.customerName.trim() || !trackForm.contactNumber.trim()) return;
       params.set("customerName", trackForm.customerName.trim());
       params.set("contactNumber", trackForm.contactNumber.trim());
     }
-    navigate(`/track?${params.toString()}`);
+    navigate(`/track?${params}`);
   }
 
   return (
     <CustomerLayout>
-      <div className="max-w-5xl mx-auto">
-        <section className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-8 items-center min-h-[calc(100vh-220px)]">
-          <div className="text-center lg:text-left">
-            <div
-              className="w-32 h-32 md:w-40 md:h-40 rounded-full mx-auto lg:mx-0 mb-5 overflow-hidden"
-              style={{
-                background: "rgba(201,168,76,0.16)",
-                border: "2px solid rgba(201,168,76,0.35)",
-                boxShadow: "0 12px 36px rgba(0,0,0,0.35)",
-              }}
-            >
-              <img
-                src={hiddenOvenLogo}
-                alt="The Hidden Oven logo"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <h1
-              className="font-display text-3xl md:text-4xl font-bold mb-3"
-              style={{ color: "#E8C96D" }}
-            >
-              The Hidden Oven
-            </h1>
-            <p
-              className="text-sm md:text-base max-w-md mx-auto lg:mx-0"
-              style={{ color: "rgba(240,232,220,0.62)" }}
-            >
-              Freshly baked breads, pastries, and cakes made for pickup with
-              warm, small-batch care.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mt-7">
-              <button
-                className="btn-primary"
-                onClick={() => navigate("/catalog")}
-              >
-                Start Order Here
-              </button>
-              <button
-                className="btn-secondary"
-                onClick={() => setTrackOpen(true)}
-              >
-                Track Order Here
-              </button>
-            </div>
-          </div>
+      <section className="rounded-[28px] bg-[#F7F4FB] px-5 py-10 text-center sm:px-10 sm:py-14">
+        <img src={hiddenOvenLogo} alt="The Hidden Oven" className="mx-auto mb-6 h-24 w-24 rounded-full object-cover shadow-card-md ring-8 ring-white" />
+        <p className="page-eyebrow">Small-batch bakery</p>
+        <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-[1.08] sm:text-5xl">Fresh comfort, ready when you are.</h1>
+        <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-[#6F6B78] sm:text-base">Order breads, pastries, and cakes made with care, then choose a convenient pickup schedule.</p>
+        <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"><button className="btn-primary px-8" onClick={() => navigate("/catalog")}>Place Order Here</button><button className="btn-secondary px-8" onClick={() => setTrackOpen(true)}>Track an Order</button></div>
+        <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-semibold text-[#6F6B78]"><span>✓ Freshly baked</span><span>✓ Easy pickup</span><span>✓ Secure payment</span></div>
+      </section>
 
-          <div
-            className="relative overflow-hidden rounded-xl"
-            style={{
-              background: "#1E1235",
-              border: "1px solid rgba(201,168,76,0.18)",
-              boxShadow: "0 2px 18px rgba(0,0,0,0.35)",
-            }}
-            onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
-            onTouchEnd={handleTouchEnd}
-          >
-            <div className="aspect-[16/9]">
-              {images.length > 0 ? (
-                <img
-                  src={images[active]}
-                  alt="Featured bakery item"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div
-                  className="w-full h-full flex items-center justify-center"
-                  style={{ color: "#9080A8" }}
-                >
-                  Bakery photos
-                </div>
-              )}
-            </div>
-            {images.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => moveSlide(-1)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full"
-                  style={{
-                    background: "rgba(13,8,32,0.72)",
-                    color: "#E8C96D",
-                    border: "1px solid rgba(201,168,76,0.25)",
-                  }}
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveSlide(1)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full"
-                  style={{
-                    background: "rgba(13,8,32,0.72)",
-                    color: "#E8C96D",
-                    border: "1px solid rgba(201,168,76,0.25)",
-                  }}
-                >
-                  ›
-                </button>
-                <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-                  {images.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setActive(idx)}
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        background:
-                          idx === active
-                            ? "#E8C96D"
-                            : "rgba(240,232,220,0.35)",
-                      }}
-                      aria-label={`Show slide ${idx + 1}`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </section>
-      </div>
+      <section className="mt-7" aria-label="Featured bakery items">
+        <div className="relative mx-auto aspect-[16/8] max-h-[560px] min-h-[260px] overflow-hidden rounded-[28px] bg-[#F4F1F8] shadow-card" onTouchStart={(event) => setTouchStart(event.touches[0].clientX)} onTouchEnd={handleTouchEnd}>
+          {images.length ? <img src={images[active]} alt="Featured bakery item" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[#6F6B78]">Bakery photos</div>}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+          {images.length > 1 && <><button type="button" onClick={() => moveSlide(-1)} aria-label="Previous featured item" className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-2xl text-[#462C7D] shadow">‹</button><button type="button" onClick={() => moveSlide(1)} aria-label="Next featured item" className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-2xl text-[#462C7D] shadow">›</button><div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">{images.map((_, index) => <button key={index} type="button" onClick={() => setActive(index)} aria-label={`Show featured item ${index + 1}`} aria-current={active === index} className={`h-2.5 rounded-full transition-all ${active === index ? "w-7 bg-white" : "w-2.5 bg-white/55"}`} />)}</div></>}
+        </div>
+      </section>
 
-      <Modal
-        open={trackOpen}
-        onClose={() => setTrackOpen(false)}
-        title="Track Order"
-      >
-        <p className="text-[0.82rem] mb-4" style={{ color: "#9080A8" }}>
-          Enter your order number, or use your name and contact number.
-        </p>
-        <TextInput
-          label="Order Number"
-          value={trackForm.orderNo}
-          onChange={(e) =>
-            setTrackForm({ ...trackForm, orderNo: e.target.value })
-          }
-          placeholder="HO-20240101-0001"
-        />
-        <div
-          className="flex items-center gap-3 my-3"
-          style={{ color: "rgba(240,232,220,0.25)" }}
-        >
-          <div className="flex-1 h-px" style={{ background: "rgba(201,168,76,0.12)" }} />
-          <span className="text-[0.72rem] font-medium">or</span>
-          <div className="flex-1 h-px" style={{ background: "rgba(201,168,76,0.12)" }} />
-        </div>
-        <TextInput
-          label="Your Name"
-          value={trackForm.customerName}
-          onChange={(e) =>
-            setTrackForm({ ...trackForm, customerName: e.target.value })
-          }
-          placeholder="Juan Dela Cruz"
-        />
-        <TextInput
-          label="Mobile Number"
-          value={trackForm.contactNumber}
-          onChange={(e) =>
-            setTrackForm({ ...trackForm, contactNumber: e.target.value })
-          }
-          placeholder="09XXXXXXXXX"
-        />
-        <div className="flex gap-3 justify-end">
-          <button className="btn-secondary" onClick={() => setTrackOpen(false)}>
-            Cancel
-          </button>
-          <button className="btn-primary" onClick={handleTrackConfirm}>
-            Confirm
-          </button>
-        </div>
-      </Modal>
+      <section className="grid gap-4 py-12 sm:grid-cols-3">{[["01", "Pick your favorites", "Explore today’s available breads, pastries, and cakes."], ["02", "Choose your pickup", "Select an available date and time that works for you."], ["03", "Collect and enjoy", "Track your order and pick it up fresh from the oven."]].map(([step, title, copy]) => <article key={step} className="surface-card p-6"><span className="text-xs font-bold text-[#462C7D]">{step}</span><h2 className="mt-5 text-lg font-bold">{title}</h2><p className="mt-2 text-sm leading-6 text-[#6F6B78]">{copy}</p></article>)}</section>
+
+      <Modal open={trackOpen} onClose={() => setTrackOpen(false)} title="Track your order"><p className="mb-5 text-sm leading-6 text-[#6F6B78]">Use your order number, or enter the customer name and mobile number used at checkout.</p><TextInput label="Order number" value={trackForm.orderNo} onChange={(event) => setTrackForm({ ...trackForm, orderNo: event.target.value })} placeholder="HO-20240101-0001" /><div className="my-4 flex items-center gap-3 text-xs text-[#817C89]"><span className="h-px flex-1 bg-[#E8E6ED]" /><span>or</span><span className="h-px flex-1 bg-[#E8E6ED]" /></div><TextInput label="Full name" value={trackForm.customerName} onChange={(event) => setTrackForm({ ...trackForm, customerName: event.target.value })} placeholder="Juan Dela Cruz" /><TextInput label="Mobile number" value={trackForm.contactNumber} onChange={(event) => setTrackForm({ ...trackForm, contactNumber: event.target.value })} placeholder="09XXXXXXXXX" /><div className="mt-2 flex justify-end gap-3"><button className="btn-secondary" onClick={() => setTrackOpen(false)}>Cancel</button><button className="btn-primary" onClick={handleTrackConfirm}>Track order</button></div></Modal>
     </CustomerLayout>
   );
 }

@@ -1,127 +1,66 @@
 import { useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useCart } from "../../context/CartContext";
+import { BrandMark } from "../ui/BrandMark";
+import { ShoppingCartIcon } from "../ui/Icons";
+
+const navItems = [
+  { to: "/", label: "Home", icon: "⌂" },
+  { to: "/catalog", label: "Menu", icon: "▦" },
+  { to: "/track", label: "Track", icon: "◎" },
+];
 
 export function CustomerLayout({ children }) {
   const { count } = useCart();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (count === 0) return;
+    if (!count) return;
     const badge = document.getElementById("cart-badge");
     if (!badge) return;
     badge.classList.remove("cart-badge-pop");
-    void badge.offsetWidth; // force reflow to restart animation
+    void badge.offsetWidth;
     badge.classList.add("cart-badge-pop");
   }, [count]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-plum-900">
-      <style>{`
-        @keyframes cartBadgePop {
-          0%   { transform: scale(1); }
-          40%  { transform: scale(1.45); }
-          70%  { transform: scale(0.88); }
-          100% { transform: scale(1); }
-        }
-        .cart-badge-pop { animation: cartBadgePop 0.35s ease; }
-      `}</style>
-
-      {/* ── Header ── */}
-      <header
-        className="sticky top-0 z-40 h-14 flex items-center justify-between px-4 md:px-8"
-        style={{
-          background: "#0D0820",
-          borderBottom: "1px solid rgba(201,168,76,0.18)",
-        }}
-      >
-        {/* Brand */}
-        <Link
-          to="/"
-          className="font-display font-bold text-[1.05rem] tracking-wide"
-          style={{ color: "#E8C96D" }}
-        >
-          The Hidden Oven
-        </Link>
-
-        {/* Nav */}
-        <nav className="flex items-center gap-2">
-          <Link
-            to="/track"
-            className="text-[0.8rem] font-medium px-3 py-1.5 rounded-lg transition-all duration-150"
-            style={{ color: "rgba(240,232,220,0.65)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "#E8C96D";
-              e.currentTarget.style.background = "rgba(201,168,76,0.09)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "rgba(240,232,220,0.65)";
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            Track Order
-          </Link>
-
-          <button
-            onClick={() => navigate("/cart")}
-            className="relative flex items-center gap-1.5 text-[0.8rem] font-semibold px-3.5 py-1.5 rounded-lg transition-all duration-150"
-            style={{
-              background: "#C9A84C",
-              color: "#1A0F2E",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#E8C96D";
-              e.currentTarget.style.boxShadow =
-                "0 4px 16px rgba(201,168,76,0.30)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#C9A84C";
-              e.currentTarget.style.boxShadow = "none";
-            }}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="9" cy="21" r="1" />
-              <circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-            </svg>
-            Cart
-            {count > 0 && (
-              <span
-                id="cart-badge"
-                className="absolute -top-2 -right-2 text-white text-[0.65rem] font-bold rounded-full h-5 w-5 flex items-center justify-center"
-                style={{ background: "#E05252" }}
-              >
-                {count}
-              </span>
-            )}
+    <div className="customer-ui min-h-screen bg-white text-[#17151D]">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#462C7D] text-white shadow-sm">
+        <div className="mx-auto flex h-[68px] max-w-6xl items-center justify-between px-4 sm:px-6">
+          <BrandMark light compact />
+          <button type="button" onClick={() => navigate("/cart")} aria-label={`Open cart with ${count} items`} className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#462C7D] sm:hidden">
+            <ShoppingCartIcon />
+            {count > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FACC15] px-1 text-[0.62rem] font-bold text-black">{count}</span>}
           </button>
-        </nav>
+          <nav className="hidden items-center gap-1 sm:flex" aria-label="Customer navigation">
+            {navItems.slice(1, 3).map((item) => (
+              <NavLink key={item.to} to={item.to} className={({ isActive }) => `rounded-full px-4 py-2 text-sm font-semibold transition-colors ${isActive ? "bg-white text-[#462C7D]" : "text-white/80 hover:bg-white/10 hover:text-white"}`}>{item.label}</NavLink>
+            ))}
+            <button type="button" onClick={() => navigate("/cart")} className="relative ml-1 flex min-h-10 items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-[#462C7D] transition-transform hover:-translate-y-0.5">
+              <ShoppingCartIcon className="h-4 w-4" />
+              Cart
+              {count > 0 && <span id="cart-badge" className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FACC15] px-1 text-[0.68rem] font-bold text-black">{count}</span>}
+            </button>
+          </nav>
+        </div>
       </header>
 
-      {/* ── Main ── */}
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 md:px-6 py-8">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-6xl px-4 py-7 pb-28 sm:px-6 sm:py-10 sm:pb-12">{children}</main>
 
-      {/* ── Footer ── */}
-      <footer
-        className="py-6 text-center text-[0.75rem]"
-        style={{
-          borderTop: "1px solid rgba(201,168,76,0.12)",
-          color: "rgba(240,232,220,0.35)",
-        }}
-      >
-        © {new Date().getFullYear()} The Hidden Oven · Baked with care
+      <footer className="hidden border-t border-[#E8E6ED] bg-white py-7 text-center text-xs text-[#6F6B78] sm:block">
+        © {new Date().getFullYear()} The Hidden Oven · Freshly baked for pickup
       </footer>
+
+      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-3 border-t border-[#E8E6ED] bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_24px_rgba(23,21,29,0.07)] backdrop-blur sm:hidden" aria-label="Mobile customer navigation">
+        {navItems.map((item) => (
+          <NavLink key={item.to} to={item.to} end={item.to === "/"} className={({ isActive }) => `relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[0.65rem] font-semibold ${isActive ? "bg-[#F4F1F8] text-[#462C7D]" : "text-[#817C89]"}`}>
+            <span aria-hidden="true" className="text-lg leading-none">{item.icon}</span>
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <style>{`@keyframes cartBadgePop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } } .cart-badge-pop { animation: cartBadgePop .3s ease; }`}</style>
     </div>
   );
 }

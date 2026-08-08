@@ -15,6 +15,7 @@ import { useToast } from "../../components/ui/Toast";
 import { Spinner } from "../../components/ui/Spinner";
 import { Modal } from "../../components/ui/Modal";
 import { ReceiptPreview } from "../../components/ui/ReceiptPreview";
+import { CalendarClockIcon, PackageStackIcon } from "../../components/ui/Icons";
 import { Swal } from "../../lib/swal";
 
 const QUEUE_STATUSES = [
@@ -33,7 +34,13 @@ const COLUMNS = [
     status: "ADVANCE",
     label: "Advance Orders",
     color: "#4FC3C7",
-    icon: "Cal",
+    icon: <CalendarClockIcon className="h-5 w-5" />,
+  },
+  {
+    status: "BULK",
+    label: "Bulk Orders",
+    color: "#462C7D",
+    icon: <PackageStackIcon className="h-5 w-5" />,
   },
   {
     status: "PAYMENT_REVIEW",
@@ -51,13 +58,13 @@ const COLUMNS = [
   {
     status: "COMPLETED",
     label: "Completed Order",
-    color: "#C9A84C",
+    color: "#462C7D",
     icon: "✓",
   },
   {
     status: "CANCELLED",
     label: "Cancelled Order",
-    color: "#9080A8",
+    color: "#6F6B78",
     icon: "⊘",
   },
   {
@@ -148,6 +155,15 @@ function pickupSortValue(order) {
   return `${date}-${String(minutes).padStart(4, "0")}`;
 }
 
+function getQueueKey(order, today = getPHTDateString()) {
+  if (order.status === "NEW") return "NEW";
+  if (order.status === "PAYMENT_REVIEW") {
+    if (order.pickupDate > today) return "ADVANCE";
+    if ((Number(order.totalQty) || 0) > 20) return "BULK";
+  }
+  return order.status;
+}
+
 function btnStyle(variant) {
   const base = {
     display: "inline-flex",
@@ -161,10 +177,10 @@ function btnStyle(variant) {
     border: "none",
     transition: "all 0.15s",
     whiteSpace: "nowrap",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Google Sans, Arial, sans-serif",
   };
   if (variant === "primary")
-    return { ...base, background: "#C9A84C", color: "#1A0F2E" };
+    return { ...base, background: "#462C7D", color: "#FFFFFF" };
   if (variant === "success")
     return { ...base, background: "#3DBD87", color: "#fff" };
   if (variant === "danger")
@@ -172,35 +188,36 @@ function btnStyle(variant) {
   if (variant === "outline")
     return {
       ...base,
-      background: "rgba(201,168,76,0.08)",
-      color: "#E8C96D",
-      border: "1.5px solid rgba(201,168,76,0.35)",
+      background: "rgba(70,44,125,0.08)",
+      color: "#462C7D",
+      border: "1.5px solid rgba(70,44,125,0.35)",
     };
   if (variant === "ghost")
     return {
       ...base,
       background: "transparent",
-      color: "#9080A8",
-      border: "1.5px solid rgba(201,168,76,0.18)",
+      color: "#6F6B78",
+      border: "1.5px solid rgba(70,44,125,0.18)",
     };
   return base;
 }
 
 function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
   const transitions = TRANSITIONS[order.status] || [];
+  const isBulk = (Number(order.totalQty) || 0) > 20;
 
   return (
     <div
       style={{
-        background: "#1E1235",
-        border: "1px solid rgba(201,168,76,0.14)",
+        background: "#FFFFFF",
+        border: "1px solid rgba(70,44,125,0.14)",
         borderTop: `3px solid ${colColor}`,
         borderRadius: "12px",
         padding: "14px",
         display: "flex",
         flexDirection: "column",
         gap: "10px",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+        boxShadow: "0 2px 10px rgba(23,21,29,0.08)",
       }}
     >
       <div
@@ -212,10 +229,15 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+          {order.orderType === "WALK_IN" && (
+            <span style={{ borderRadius: "999px", background: "#462C7D", color: "#FFFFFF", fontSize: "0.58rem", fontWeight: 800, padding: "3px 7px", textTransform: "uppercase" }}>
+              Walk-in
+            </span>
+          )}
           <span
             style={{
               background: colColor,
-              color: "#1A0F2E",
+              color: "#FFFFFF",
               borderRadius: "5px",
               fontSize: "0.6rem",
               fontWeight: 800,
@@ -227,24 +249,43 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
           </span>
           <span
             style={{
-              color: "#C9A84C",
+              color: "#462C7D",
               fontWeight: 700,
               fontSize: "0.85rem",
-              fontFamily: "Inter, sans-serif",
+              fontFamily: "Google Sans, Arial, sans-serif",
             }}
           >
             {order.orderNo}
           </span>
         </div>
-        <span
-          style={{
-            color: "#5A4870",
-            fontSize: "0.68rem",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {ageStr(order.createdAt)}
-        </span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+          {isBulk && (
+            <span
+              style={{
+                borderRadius: "999px",
+                background: "rgba(70,44,125,0.1)",
+                color: "#462C7D",
+                fontSize: "0.62rem",
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+                padding: "3px 8px",
+                textTransform: "uppercase",
+              }}
+            >
+              Bulk
+            </span>
+          )}
+          <span style={{ color: "#AAA6B0", fontSize: "0.68rem", whiteSpace: "nowrap" }}>
+            {ageStr(order.createdAt)}
+          </span>
+          <button
+            type="button"
+            onClick={() => onView(order)}
+            style={{ border: 0, background: "transparent", color: "#462C7D", cursor: "pointer", fontFamily: "inherit", fontSize: "0.68rem", fontWeight: 700, padding: 0 }}
+          >
+            View details
+          </button>
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
@@ -257,7 +298,7 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
         >
           <span
             style={{
-              color: "#F0E8D8",
+              color: "#17151D",
               fontWeight: 600,
               fontSize: "0.82rem",
               overflow: "hidden",
@@ -270,7 +311,7 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
           </span>
           <span
             style={{
-              color: "#E8C96D",
+              color: "#462C7D",
               fontWeight: 700,
               fontSize: "0.85rem",
               flexShrink: 0,
@@ -279,34 +320,34 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
             {peso(order.total)}
           </span>
         </div>
-        <span style={{ color: "#9080A8", fontSize: "0.73rem" }}>
+        <span style={{ color: "#6F6B78", fontSize: "0.73rem" }}>
           {order.contactNumber}
+        </span>
+        <span style={{ color: "#6F6B78", fontSize: "0.73rem", fontWeight: 600 }}>
+          Total quantity: {order.totalQty || 0}
         </span>
         <div>
           <StatusBadge status={order.status} />
         </div>
-        <span style={{ color: "#5A4870", fontSize: "0.7rem" }}>
+        <span style={{ color: "#AAA6B0", fontSize: "0.7rem" }}>
           📅 {order.pickupDate} · {order.pickupLabel || "—"}
         </span>
       </div>
 
       <div
         style={{
-          display: "flex",
-          gap: "6px",
-          flexWrap: "wrap",
-          paddingTop: "6px",
-          borderTop: "1px solid rgba(201,168,76,0.1)",
+          display: transitions.length > 0 ? "grid" : "none",
+          gridTemplateColumns: `repeat(${Math.min(transitions.length, 2)}, minmax(0, 1fr))`,
+          gap: "7px",
+          paddingTop: "8px",
+          borderTop: "1px solid rgba(70,44,125,0.1)",
         }}
       >
-        <button type="button" style={btnStyle("outline")} onClick={() => onView(order)}>
-          View
-        </button>
         {transitions.map((action) => (
           <button
             key={action.to}
             type="button"
-            style={btnStyle(action.style)}
+            style={{ ...btnStyle(action.style), width: "100%", minHeight: "34px" }}
             disabled={acting}
             onClick={() => onAction(order.orderId, action.to)}
           >
@@ -325,7 +366,7 @@ function EmptyState() {
         gridColumn: "1 / -1",
         textAlign: "center",
         padding: "32px 16px",
-        color: "#5A4870",
+        color: "#AAA6B0",
         fontSize: "0.78rem",
       }}
     >
@@ -341,8 +382,8 @@ function ColumnPanel({ col, orders, acting, onAction, onView }) {
   return (
     <div
       style={{
-        background: "#120B22",
-        border: "1px solid rgba(201,168,76,0.1)",
+        background: "#F7F7FA",
+        border: "1px solid rgba(70,44,125,0.1)",
         borderRadius: "14px",
         display: "flex",
         flexDirection: "column",
@@ -400,8 +441,8 @@ function AdvanceOrdersPanel({
   return (
     <div
       style={{
-        background: "#120B22",
-        border: "1px solid rgba(201,168,76,0.1)",
+        background: "#F7F7FA",
+        border: "1px solid rgba(70,44,125,0.1)",
         borderRadius: "14px",
         display: "flex",
         flexDirection: "column",
@@ -414,7 +455,7 @@ function AdvanceOrdersPanel({
       <div
         style={{
           padding: "14px",
-          borderBottom: "1px solid rgba(201,168,76,0.1)",
+          borderBottom: "1px solid rgba(70,44,125,0.1)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -431,7 +472,7 @@ function AdvanceOrdersPanel({
               style={{
                 ...btnStyle(filter === option.key ? "primary" : "ghost"),
                 borderColor:
-                  filter === option.key ? "transparent" : "rgba(201,168,76,0.25)",
+                  filter === option.key ? "transparent" : "rgba(70,44,125,0.25)",
               }}
             >
               {option.label}
@@ -492,15 +533,15 @@ function AdvanceOrdersPanel({
 }
 
 const advanceDateInputStyle = {
-  background: "rgba(255,255,255,0.05)",
-  border: "1.5px solid rgba(201,168,76,0.25)",
+  background: "#FFFFFF",
+  border: "1.5px solid rgba(70,44,125,0.25)",
   borderRadius: "8px",
-  color: "#F0E8D8",
+  color: "#17151D",
   fontSize: "0.78rem",
-  fontFamily: "Inter, sans-serif",
+  fontFamily: "Google Sans, Arial, sans-serif",
   padding: "6px 9px",
   outline: "none",
-  colorScheme: "dark",
+  colorScheme: "light",
 };
 
 function PanelHeader({ col, count }) {
@@ -508,11 +549,11 @@ function PanelHeader({ col, count }) {
     <div
       style={{
         padding: "12px 16px",
-        borderBottom: "2px solid rgba(201,168,76,0.1)",
+        borderBottom: "2px solid rgba(70,44,125,0.1)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        background: "#0D0820",
+        background: "#462C7D",
         flexShrink: 0,
       }}
     >
@@ -532,7 +573,7 @@ function PanelHeader({ col, count }) {
       <span
         style={{
           background: col.color,
-          color: "#1A0F2E",
+          color: "#FFFFFF",
           borderRadius: "20px",
           fontSize: "0.65rem",
           fontWeight: 800,
@@ -551,8 +592,8 @@ function OrderTablePanel({ col, orders, onView }) {
   return (
     <div
       style={{
-        background: "#120B22",
-        border: "1px solid rgba(201,168,76,0.1)",
+        background: "#F7F7FA",
+        border: "1px solid rgba(70,44,125,0.1)",
         borderRadius: "14px",
         overflow: "hidden",
       }}
@@ -560,7 +601,7 @@ function OrderTablePanel({ col, orders, onView }) {
       <PanelHeader col={col} count={orders.length} />
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-[0.78rem]">
-          <thead style={{ background: "#0D0820", color: "#9080A8" }}>
+          <thead style={{ background: "#462C7D", color: "#6F6B78" }}>
             <tr>
               {["Order", "Customer", "Contact", "Pickup", "Total", "Status", ""].map(
                 (heading) => (
@@ -574,7 +615,7 @@ function OrderTablePanel({ col, orders, onView }) {
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center" colSpan={7} style={{ color: "#5A4870" }}>
+                <td className="px-4 py-8 text-center" colSpan={7} style={{ color: "#AAA6B0" }}>
                   No orders here
                 </td>
               </tr>
@@ -582,21 +623,21 @@ function OrderTablePanel({ col, orders, onView }) {
               orders.map((order) => (
                 <tr
                   key={order.orderId}
-                  style={{ borderTop: "1px solid rgba(201,168,76,0.08)" }}
+                  style={{ borderTop: "1px solid rgba(70,44,125,0.08)" }}
                 >
-                  <td className="px-4 py-3 font-semibold" style={{ color: "#E8C96D" }}>
+                  <td className="px-4 py-3 font-semibold" style={{ color: "#462C7D" }}>
                     {order.orderNo}
                   </td>
-                  <td className="px-4 py-3" style={{ color: "#F0E8D8" }}>
+                  <td className="px-4 py-3" style={{ color: "#17151D" }}>
                     {order.customerName}
                   </td>
-                  <td className="px-4 py-3" style={{ color: "#9080A8" }}>
+                  <td className="px-4 py-3" style={{ color: "#6F6B78" }}>
                     {order.contactNumber}
                   </td>
-                  <td className="px-4 py-3" style={{ color: "#9080A8" }}>
+                  <td className="px-4 py-3" style={{ color: "#6F6B78" }}>
                     {order.pickupDate} · {order.pickupLabel || "—"}
                   </td>
-                  <td className="px-4 py-3 font-semibold" style={{ color: "#E8C96D" }}>
+                  <td className="px-4 py-3 font-semibold" style={{ color: "#462C7D" }}>
                     {peso(order.total)}
                   </td>
                   <td className="px-4 py-3">
@@ -625,13 +666,13 @@ function DetailRow({ label, value }) {
         justifyContent: "space-between",
         gap: "16px",
         padding: "8px 0",
-        borderBottom: "1px solid rgba(201,168,76,0.08)",
+        borderBottom: "1px solid rgba(70,44,125,0.08)",
       }}
     >
-      <span style={{ color: "#9080A8", fontSize: "0.75rem" }}>{label}</span>
+      <span style={{ color: "#6F6B78", fontSize: "0.75rem" }}>{label}</span>
       <span
         style={{
-          color: "#F0E8D8",
+          color: "#17151D",
           fontWeight: 600,
           fontSize: "0.78rem",
           textAlign: "right",
@@ -662,7 +703,7 @@ function OrderDetailsModal({
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
             <StatusBadge status={order.status} />
-            <span style={{ color: "#E8C96D", fontWeight: 800 }}>{peso(order.total)}</span>
+            <span style={{ color: "#462C7D", fontWeight: 800 }}>{peso(order.total)}</span>
           </div>
 
           <div>
@@ -703,7 +744,7 @@ function OrderDetailsModal({
           <div>
             <h3
               style={{
-                color: "#E8C96D",
+                color: "#462C7D",
                 fontWeight: 700,
                 fontSize: "0.86rem",
                 marginBottom: "8px",
@@ -714,7 +755,7 @@ function OrderDetailsModal({
             {loading ? (
               <Spinner />
             ) : items.length === 0 ? (
-              <p style={{ color: "#9080A8", fontSize: "0.78rem" }}>
+              <p style={{ color: "#6F6B78", fontSize: "0.78rem" }}>
                 No item details were found for this order.
               </p>
             ) : (
@@ -724,7 +765,7 @@ function OrderDetailsModal({
                     key={item.id}
                     style={{
                       background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(201,168,76,0.1)",
+                      border: "1px solid rgba(70,44,125,0.1)",
                       borderRadius: "10px",
                       padding: "10px",
                     }}
@@ -734,7 +775,7 @@ function OrderDetailsModal({
                         display: "flex",
                         justifyContent: "space-between",
                         gap: "12px",
-                        color: "#F0E8D8",
+                        color: "#17151D",
                         fontSize: "0.8rem",
                         fontWeight: 700,
                       }}
@@ -742,7 +783,7 @@ function OrderDetailsModal({
                       <span>{item.name || item.productName || "Product"}</span>
                       <span>{peso(item.lineTotal || item.subtotal || item.price * item.qty)}</span>
                     </div>
-                    <div style={{ color: "#9080A8", fontSize: "0.72rem", marginTop: "4px" }}>
+                    <div style={{ color: "#6F6B78", fontSize: "0.72rem", marginTop: "4px" }}>
                       Qty: {item.qty || item.quantity || 1}
                       {item.price ? ` · ${peso(item.price)} each` : ""}
                     </div>
@@ -755,7 +796,7 @@ function OrderDetailsModal({
           {order.status === "PAYMENT_REVIEW" && (
             <div
               style={{
-                borderTop: "1px solid rgba(201,168,76,0.12)",
+                borderTop: "1px solid rgba(70,44,125,0.12)",
                 paddingTop: "14px",
                 display: "flex",
                 gap: "8px",
@@ -810,9 +851,22 @@ export default function StaffOrdersPage() {
     );
     const unsub = onSnapshot(
       q,
-      (snap) => {
-        setOrders(snap.docs.map((d) => ({ orderId: d.id, ...d.data() })));
-        setLoading(false);
+      async (snap) => {
+        try {
+          const rawOrders = snap.docs.map((d) => ({ orderId: d.id, ...d.data() }));
+          const hydratedOrders = await Promise.all(rawOrders.map(async (order) => {
+            if (typeof order.totalQty === "number") return order;
+            const itemsSnapshot = await getDocs(query(collection(db, "order_items"), where("orderId", "==", order.orderId)));
+            const totalQty = itemsSnapshot.docs.reduce((sum, itemDoc) => sum + (Number(itemDoc.data().qty) || 0), 0);
+            return { ...order, totalQty };
+          }));
+          setOrders(hydratedOrders);
+        } catch (error) {
+          console.error("Order quantity hydration error:", error);
+          setOrders(snap.docs.map((d) => ({ orderId: d.id, ...d.data(), totalQty: d.data().totalQty || 0 })));
+        } finally {
+          setLoading(false);
+        }
       },
       (err) => {
         console.error("Order queue listener error:", err);
@@ -823,18 +877,19 @@ export default function StaffOrdersPage() {
     return unsub;
   }, []);
 
-  function confirmationText(toStatus) {
+  function confirmationText(toStatus, fromStatus) {
     if (toStatus === "PREPARING") return "Are you sure Payment is Fully Verified?";
     if (toStatus === "PAYMENT_REJECTED") return "Are you sure to Reject this Payment?";
     if (toStatus === "READY_FOR_PICKUP")
       return "Are you sure to Mark the Order Ready for Pickup?";
     if (toStatus === "COMPLETED") return "Are you sure this order was Picked Up?";
-    if (toStatus === "PAYMENT_REVIEW") return "Are you sure to Re-open Payment Review?";
+    if (toStatus === "PAYMENT_REVIEW" && fromStatus === "NEW") return "Accept this order?";
+    if (toStatus === "PAYMENT_REVIEW") return "Re-open this order for payment review?";
     if (toStatus === "CANCELLED") return "Are you to cancel this order?";
     return "Are you sure you want to update this order?";
   }
 
-  async function confirmAction(toStatus) {
+  async function confirmAction(toStatus, fromStatus) {
     if (toStatus === "CANCELLED") {
       const result = await Swal.fire({
         title: "Cancel Order",
@@ -855,7 +910,7 @@ export default function StaffOrdersPage() {
 
     const result = await Swal.fire({
       title: "Confirm Action",
-      text: confirmationText(toStatus),
+      text: confirmationText(toStatus, fromStatus),
       showCancelButton: true,
       confirmButtonText: "Yes, continue",
       cancelButtonText: "No",
@@ -864,7 +919,8 @@ export default function StaffOrdersPage() {
   }
 
   async function handleAction(orderId, toStatus) {
-    const confirmation = await confirmAction(toStatus);
+    const currentOrder = orders.find((order) => order.orderId === orderId);
+    const confirmation = await confirmAction(toStatus, currentOrder?.status);
     if (!confirmation.confirmed) return;
     setActing(true);
     try {
@@ -929,20 +985,18 @@ export default function StaffOrdersPage() {
   }, [orders, search]);
 
   const grouped = useMemo(() => {
-    const byStatus = Object.fromEntries(QUEUE_STATUSES.map((s) => [s, []]));
+    const byStatus = Object.fromEntries(COLUMNS.map((column) => [column.status, []]));
     const today = getPHTDateString();
     filtered.forEach((order) => {
-      if (order.pickupDate > today) return;
-      if (byStatus[order.status]) byStatus[order.status].push(order);
+      const queueKey = getQueueKey(order, today);
+      if (byStatus[queueKey]) byStatus[queueKey].push(order);
     });
     return byStatus;
   }, [filtered]);
 
   const advanceOrders = useMemo(() => {
-    const today = getPHTDateString();
     const nextDay = getPHTDateString(1);
-    return filtered
-      .filter((order) => order.pickupDate > today)
+    return (grouped.ADVANCE || [])
       .filter((order) => {
         if (advanceFilter === "tomorrow") return order.pickupDate === nextDay;
         if (advanceFilter === "custom") {
@@ -954,36 +1008,29 @@ export default function StaffOrdersPage() {
         return true;
       })
       .sort((a, b) => pickupSortValue(a).localeCompare(pickupSortValue(b)));
-  }, [filtered, advanceFilter, customFrom, customTo]);
+  }, [grouped, advanceFilter, customFrom, customTo]);
 
   const allAdvanceOrders = useMemo(() => {
-    const today = getPHTDateString();
-    return filtered
-      .filter((order) => order.pickupDate > today)
+    return (grouped.ADVANCE || [])
       .sort((a, b) => pickupSortValue(a).localeCompare(pickupSortValue(b)));
-  }, [filtered]);
+  }, [grouped]);
 
   const activeCol = COLUMNS.find((c) => c.status === activeTab) || COLUMNS[0];
-  const activeOrders =
-    activeCol.status === "ADVANCE"
-      ? advanceOrders
-      : grouped[activeCol.status] || [];
+  const activeOrders = activeCol.status === "ADVANCE" ? advanceOrders : grouped[activeCol.status] || [];
   const sidebarItems = COLUMNS.map((col) => ({
     ...col,
     count:
-      col.status === "ADVANCE"
-        ? allAdvanceOrders.length
-        : grouped[col.status]?.length || 0,
+      col.status === "ADVANCE" ? allAdvanceOrders.length : grouped[col.status]?.length || 0,
   }));
   const isTableView = ["COMPLETED", "CANCELLED"].includes(activeCol.status);
 
   const inputStyle = {
-    background: "rgba(255,255,255,0.05)",
-    border: "1.5px solid rgba(201,168,76,0.25)",
+    background: "#FFFFFF",
+    border: "1.5px solid rgba(70,44,125,0.25)",
     borderRadius: "8px",
-    color: "#F0E8D8",
+    color: "#17151D",
     fontSize: "0.83rem",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Google Sans, Arial, sans-serif",
     padding: "7px 12px 7px 32px",
     outline: "none",
     width: "210px",
@@ -1017,15 +1064,15 @@ export default function StaffOrdersPage() {
         <div>
           <h2
             style={{
-              color: "#E8C96D",
+              color: "#462C7D",
               fontWeight: 700,
               fontSize: "1.15rem",
-              fontFamily: "Inter, sans-serif",
+              fontFamily: "Google Sans, Arial, sans-serif",
             }}
           >
             {activeCol.label}
           </h2>
-          <p style={{ color: "#9080A8", fontSize: "0.74rem", marginTop: "2px" }}>
+          <p style={{ color: "#6F6B78", fontSize: "0.74rem", marginTop: "2px" }}>
             Use the left status panel to move between order queues.
           </p>
         </div>
@@ -1036,7 +1083,7 @@ export default function StaffOrdersPage() {
               left: "10px",
               top: "50%",
               transform: "translateY(-50%)",
-              color: "#5A4870",
+              color: "#AAA6B0",
               fontSize: "0.85rem",
               pointerEvents: "none",
             }}
@@ -1049,9 +1096,9 @@ export default function StaffOrdersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={inputStyle}
-            onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+            onFocus={(e) => (e.target.style.borderColor = "#462C7D")}
             onBlur={(e) =>
-              (e.target.style.borderColor = "rgba(201,168,76,0.25)")
+              (e.target.style.borderColor = "rgba(70,44,125,0.25)")
             }
           />
         </div>

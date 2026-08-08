@@ -78,15 +78,15 @@ export default function AdminReportsPage() {
   }
 
   const inputStyle = {
-    background: "rgba(255,255,255,0.05)",
-    border: "1.5px solid rgba(201,168,76,0.25)",
+    background: "#FFFFFF",
+    border: "1.5px solid rgba(70,44,125,0.25)",
     borderRadius: "8px",
-    color: "#F0E8D8",
+    color: "#17151D",
     fontSize: "0.84rem",
-    fontFamily: "Inter,sans-serif",
+    fontFamily: "Google Sans,Arial,sans-serif",
     outline: "none",
     padding: "9px 12px",
-    colorScheme: "dark",
+    colorScheme: "light",
     transition: "border 0.2s",
   };
 
@@ -96,11 +96,11 @@ export default function AdminReportsPage() {
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#E8C96D" }}
+            style={{ color: "#462C7D" }}
           >
             Sales Reports
           </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
             Completed order transactions and CSV export
           </p>
         </div>
@@ -109,8 +109,8 @@ export default function AdminReportsPage() {
       <div
         className="flex flex-wrap items-end gap-4 p-5 rounded-xl mb-6"
         style={{
-          background: "#1E1235",
-          border: "1px solid rgba(201,168,76,0.18)",
+          background: "#FFFFFF",
+          border: "1px solid rgba(70,44,125,0.18)",
         }}
       >
         <div>
@@ -174,8 +174,8 @@ export default function AdminReportsPage() {
               {
                 label: "Total Revenue",
                 value: formatMoney(report.totalRevenue),
-                topColor: "#C9A84C",
-                textColor: "#C9A84C",
+                topColor: "#462C7D",
+                textColor: "#462C7D",
               },
               {
                 label: "Avg. Order Value",
@@ -192,15 +192,15 @@ export default function AdminReportsPage() {
                 key={label}
                 className="rounded-xl p-4"
                 style={{
-                  background: "#1E1235",
-                  border: "1px solid rgba(201,168,76,0.18)",
+                  background: "#FFFFFF",
+                  border: "1px solid rgba(70,44,125,0.18)",
                   borderTop: `3px solid ${topColor}`,
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+                  boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
                 }}
               >
                 <div
                   className="text-[0.68rem] font-bold uppercase tracking-[0.5px] mb-2"
-                  style={{ color: "#9080A8" }}
+                  style={{ color: "#6F6B78" }}
                 >
                   {label}
                 </div>
@@ -216,7 +216,7 @@ export default function AdminReportsPage() {
 
           <div
             className="overflow-x-auto rounded-xl"
-            style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}
+            style={{ boxShadow: "0 2px 12px rgba(23,21,29,0.09)" }}
           >
             <table className="w-full border-collapse" style={{ fontSize: "0.82rem" }}>
               <thead>
@@ -236,9 +236,9 @@ export default function AdminReportsPage() {
                         fontWeight: 700,
                         textTransform: "uppercase",
                         letterSpacing: "0.5px",
-                        color: "#9080A8",
-                        borderBottom: "2px solid rgba(201,168,76,0.18)",
-                        background: "#1E1235",
+                        color: "#6F6B78",
+                        borderBottom: "2px solid rgba(70,44,125,0.18)",
+                        background: "#FFFFFF",
                       }}
                     >
                       {h}
@@ -252,7 +252,7 @@ export default function AdminReportsPage() {
                     <td
                       colSpan={5}
                       className="text-center py-10"
-                      style={{ background: "#1E1235", color: "#9080A8" }}
+                      style={{ background: "#FFFFFF", color: "#6F6B78" }}
                     >
                       No completed transactions found.
                     </td>
@@ -261,21 +261,21 @@ export default function AdminReportsPage() {
                   report.transactions.map((tx) => (
                     <tr
                       key={tx.orderId}
-                      style={{ borderBottom: "1px solid rgba(201,168,76,0.09)" }}
+                      style={{ borderBottom: "1px solid rgba(70,44,125,0.09)" }}
                     >
-                      <td className="px-3 py-3 font-bold" style={{ background: "#1E1235", color: "#C9A84C" }}>
+                      <td className="px-3 py-3 font-bold" style={{ background: "#FFFFFF", color: "#462C7D" }}>
                         {tx.orderNo}
                       </td>
-                      <td className="px-3 py-3 font-semibold" style={{ background: "#1E1235", color: "#F0E8D8" }}>
+                      <td className="px-3 py-3 font-semibold" style={{ background: "#FFFFFF", color: "#17151D" }}>
                         {tx.customerName}
                       </td>
-                      <td className="px-3 py-3" style={{ background: "#1E1235", color: "#9080A8" }}>
+                      <td className="px-3 py-3" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
                         {tx.contactNumber}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap" style={{ background: "#1E1235", color: "#9080A8" }}>
+                      <td className="px-3 py-3 whitespace-nowrap" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
                         {formatDate(tx.orderDate)}
                       </td>
-                      <td className="px-3 py-3 font-bold" style={{ background: "#1E1235", color: "#E8C96D" }}>
+                      <td className="px-3 py-3 font-bold" style={{ background: "#FFFFFF", color: "#462C7D" }}>
                         {formatMoney(tx.total)}
                       </td>
                     </tr>

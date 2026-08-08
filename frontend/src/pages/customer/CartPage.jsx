@@ -10,89 +10,88 @@ import { getDailyStockRemaining } from "../../lib/date";
 export default function CartPage() {
   const { items, total, updateQty, removeItem, clearCart } = useCart();
   const navigate = useNavigate();
-
   const [clearConfirm, setClearConfirm] = useState(false);
-
-  const [dateRange, setDateRange] = useState({
-    earliestDate: "",
-    latestDate: "",
-  });
+  const [dateRange, setDateRange] = useState({ earliestDate: "", latestDate: "", sameDayCutoffReached: false });
   const [slots, setSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
-
-  const [form, setForm] = useState({
-    customerName: "",
-    contactNumber: "",
-    pickupDate: "",
-    pickupConfigId: "",
-  });
+  const [form, setForm] = useState({ customerName: "", contactNumber: "", pickupDate: "", pickupConfigId: "" });
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    api
-      .getAvailableDates()
-      .then(({ earliestDate, latestDate }) => {
-        setDateRange({ earliestDate, latestDate });
-        setForm((f) => ({ ...f, pickupDate: earliestDate }));
-      })
-      .catch(() => {});
+    let active = true;
+    const refreshDateRange = () => {
+      api.getAvailableDates().then(({ earliestDate, latestDate, sameDayCutoffReached }) => {
+        if (!active) return;
+        setDateRange({ earliestDate, latestDate, sameDayCutoffReached: Boolean(sameDayCutoffReached) });
+        setForm((current) => ({
+          ...current,
+          pickupDate: current.pickupDate && current.pickupDate >= earliestDate
+            ? current.pickupDate
+            : earliestDate,
+        }));
+      }).catch(() => {});
+    };
+    refreshDateRange();
+    const interval = window.setInterval(refreshDateRange, 60000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
     if (!form.pickupDate) return;
+    let active = true;
     setSlotsLoading(true);
-    setForm((f) => ({ ...f, pickupConfigId: "" }));
-    api
-      .getAvailableSlots(form.pickupDate)
-      .then(setSlots)
-      .catch(() => setSlots([]))
-      .finally(() => setSlotsLoading(false));
+    setForm((current) => ({ ...current, pickupConfigId: "" }));
+    const refreshSlots = () => {
+      api.getAvailableSlots(form.pickupDate).then((availableSlots) => {
+        if (!active) return;
+        setSlots(availableSlots);
+        setForm((current) => ({
+          ...current,
+          pickupConfigId: availableSlots.some((slot) => slot.configId === current.pickupConfigId)
+            ? current.pickupConfigId
+            : "",
+        }));
+      }).catch(() => {
+        if (active) setSlots([]);
+      }).finally(() => {
+        if (active) setSlotsLoading(false);
+      });
+    };
+    refreshSlots();
+    const interval = window.setInterval(refreshSlots, 60000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, [form.pickupDate]);
 
   function validate() {
-    const e = {};
-    if (!form.customerName.trim()) e.customerName = "Name is required.";
-    if (!/^(09|\+639)\d{9}$/.test(form.contactNumber))
-      e.contactNumber = "Enter a valid PH mobile (09XXXXXXXXX).";
-    if (!form.pickupDate) e.pickupDate = "Please select a pickup date.";
-    if (!form.pickupConfigId) e.pickupConfigId = "Please select a pickup time.";
+    const nextErrors = {};
+    if (!form.customerName.trim()) nextErrors.customerName = "Name is required.";
+    if (!/^(09|\+639)\d{9}$/.test(form.contactNumber)) nextErrors.contactNumber = "Enter a valid PH mobile (09XXXXXXXXX).";
+    if (!form.pickupDate) nextErrors.pickupDate = "Please select a pickup date.";
+    if (!form.pickupConfigId) nextErrors.pickupConfigId = "Please select a pickup time.";
     for (const item of items) {
       const remaining = getDailyStockRemaining(item);
-      if (remaining !== null && item.qty > remaining) {
-        e.form = `${item.name} only has ${remaining} left in stock today.`;
-        break;
-      }
+      if (remaining !== null && item.qty > remaining) { nextErrors.form = `${item.name} only has ${remaining} left in stock today.`; break; }
     }
-    return e;
+    return nextErrors;
   }
 
   function handleCheckout() {
-    const e = validate();
-    if (Object.keys(e).length) {
-      setErrors(e);
-      return;
-    }
-    if (items.length === 0) {
-      setErrors({ form: "Your cart is empty." });
-      return;
-    }
-
+    const nextErrors = validate();
+    if (Object.keys(nextErrors).length) { setErrors(nextErrors); return; }
+    if (!items.length) { setErrors({ form: "Your cart is empty." }); return; }
+    const chosen = slots.find((slot) => slot.configId === form.pickupConfigId);
     const payload = {
-      customerName: form.customerName.trim(),
-      contactNumber: form.contactNumber,
-      pickupDate: form.pickupDate,
-      pickupConfigId: form.pickupConfigId,
-      pickupLabel:
-        slots.find((slot) => slot.configId === form.pickupConfigId)?.label ||
-        "",
-      total,
-      items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
-      displayItems: items.map((i) => ({
-        productId: i.productId,
-        name: i.name,
-        qty: i.qty,
-        price: i.price,
-      })),
+      customerName: form.customerName.trim(), contactNumber: form.contactNumber,
+      pickupDate: form.pickupDate, pickupConfigId: form.pickupConfigId,
+      pickupLabel: chosen?.label || "", total,
+      items: items.map((item) => ({ productId: item.productId, qty: item.qty })),
+      displayItems: items.map((item) => ({ productId: item.productId, name: item.name, qty: item.qty, price: item.price })),
     };
     sessionStorage.setItem("checkout_draft", JSON.stringify(payload));
     navigate("/payment", { state: { checkoutDraft: payload } });
@@ -100,423 +99,59 @@ export default function CartPage() {
 
   function handleQtyChange(item, nextQty) {
     const remaining = getDailyStockRemaining(item);
-    if (remaining !== null && nextQty > remaining) {
-      setErrors({
-        form: `${item.name} only has ${remaining} left in stock today.`,
-      });
-      return;
-    }
-    setErrors((prev) => ({ ...prev, form: "" }));
+    if (remaining !== null && nextQty > remaining) { setErrors({ form: `${item.name} only has ${remaining} left in stock today.` }); return; }
+    setErrors((current) => ({ ...current, form: "" }));
     updateQty(item.productId, nextQty);
   }
 
-  function formatDateLabel(d) {
-    if (!d) return "";
-    const [y, m, day] = d.split("-").map(Number);
-    return new Date(y, m - 1, day).toLocaleDateString("en-PH", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
+  function formatDateLabel(value) {
+    if (!value) return "";
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
   }
 
-  const surfaceStyle = {
-    background: "#1E1235",
-    border: "1px solid rgba(201,168,76,0.18)",
-    borderRadius: "12px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
-  };
-
-  const inputStyle = {
-    width: "100%",
-    background: "rgba(255,255,255,0.05)",
-    border: "1.5px solid rgba(201,168,76,0.25)",
-    borderRadius: "8px",
-    color: "#F0E8D8",
-    fontSize: "0.87rem",
-    fontFamily: "Inter,sans-serif",
-    outline: "none",
-    padding: "11px 13px",
-    transition: "border 0.2s, background 0.2s",
-    WebkitAppearance: "none",
-    appearance: "none",
-    colorScheme: "dark",
-  };
-
-  const pickupSelectStyle = {
-    ...inputStyle,
-    background: "#261748",
-    color: "#E8C96D",
-    border: "1.5px solid rgba(201,168,76,0.35)",
-  };
-
-  const labelStyle = {
-    display: "block",
-    fontSize: "0.69rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    color: "#9080A8",
-    marginBottom: "6px",
-  };
-
-  const errorStyle = {
-    fontSize: "0.72rem",
-    color: "#E05252",
-    marginTop: "4px",
-  };
+  const selectedSlot = slots.find((slot) => slot.configId === form.pickupConfigId);
 
   return (
     <CustomerLayout>
-      {/* ── Page heading with Clear Cart ── */}
-      <div className="flex items-center justify-between mb-6">
-        <h1
-          className="font-display text-2xl font-bold"
-          style={{ color: "#E8C96D" }}
-        >
-          Your Cart
-        </h1>
+      <button onClick={() => navigate("/catalog")} className="btn-ghost mb-4 px-2">← Back to Menu</button>
+      <header className="mb-7 flex items-start justify-between gap-4">
+        <div><p className="page-eyebrow">Checkout</p><h1 className="page-title">Review Your Order</h1><p className="page-subtitle">Confirm your items and pickup information.</p></div>
+        {items.length > 0 && (clearConfirm ? <div className="flex items-center gap-2 text-xs"><button className="font-bold text-[#B42318]" onClick={() => { clearCart(); setClearConfirm(false); }}>Clear all</button><button className="text-[#6F6B78]" onClick={() => setClearConfirm(false)}>Cancel</button></div> : <button className="btn-ghost min-h-9 px-3 py-1 text-xs" onClick={() => setClearConfirm(true)}>Clear cart</button>)}
+      </header>
 
-        {items.length > 0 &&
-          (clearConfirm ? (
-            <div className="flex items-center gap-2">
-              <span
-                className="text-[0.75rem]"
-                style={{ color: "rgba(240,232,220,0.45)" }}
-              >
-                Clear all items?
-              </span>
-              <button
-                onClick={() => {
-                  clearCart();
-                  setClearConfirm(false);
-                }}
-                className="text-[0.75rem] font-semibold"
-                style={{ color: "#E05252" }}
-              >
-                Yes, clear
-              </button>
-              <button
-                onClick={() => setClearConfirm(false)}
-                className="text-[0.75rem] font-medium"
-                style={{ color: "rgba(240,232,220,0.4)" }}
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setClearConfirm(true)}
-              className="text-[0.75rem] font-medium transition-colors duration-150"
-              style={{ color: "rgba(240,232,220,0.35)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#E05252")}
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "rgba(240,232,220,0.35)")
-              }
-            >
-              Clear cart
-            </button>
-          ))}
-      </div>
-
-      {items.length === 0 ? (
-        <div
-          className="text-center py-20"
-          style={{ color: "rgba(240,232,220,0.45)" }}
-        >
-          <div className="text-5xl mb-4 opacity-40">🛒</div>
-          <p className="mb-5 text-sm">Your cart is empty.</p>
-          <button onClick={() => navigate("/catalog")} className="btn-primary">
-            Browse Products
-          </button>
-        </div>
+      {!items.length ? (
+        <section className="surface-card py-20 text-center"><div className="mb-4 text-5xl">🛒</div><h2 className="text-xl font-bold">Your cart is empty</h2><p className="mx-auto mt-2 max-w-sm text-sm text-[#6F6B78]">Find something delicious in today’s menu and add it here.</p><button onClick={() => navigate("/catalog")} className="btn-primary mt-6">Browse the menu</button></section>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Cart items ── */}
-          <div className="lg:col-span-2 space-y-3">
+        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+          <section className="order-2 space-y-3 lg:order-1" aria-label="Order summary">
+            <h2 className="mb-4 text-lg font-bold">Order Summary</h2>
             {items.map((item) => {
               const remaining = getDailyStockRemaining(item);
               const atLimit = remaining !== null && item.qty >= remaining;
               return (
-              <div
-                key={item.productId}
-                className="flex flex-wrap items-center gap-3 px-4 py-4 rounded-card sm:flex-nowrap sm:gap-4 sm:px-5"
-                style={surfaceStyle}
-              >
-                <div className="w-full min-w-0 sm:flex-1">
-                  <p
-                    className="font-semibold text-[0.9rem] leading-snug break-words"
-                    style={{ color: "#F0E8D8" }}
-                  >
-                    {item.name}
-                  </p>
-                  <p
-                    className="text-[0.75rem] mt-0.5"
-                    style={{ color: "rgba(240,232,220,0.45)" }}
-                  >
-                    ₱{item.price.toFixed(2)} each
-                  </p>
-                </div>
-
-                {/* Qty stepper */}
-                <div className="flex items-center gap-1 order-3 sm:order-none">
-                  <button
-                    onClick={() => handleQtyChange(item, item.qty - 1)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold sm:w-7 sm:h-7"
-                    style={{
-                      background: "rgba(201,168,76,0.12)",
-                      color: "#C9A84C",
-                      border: "1px solid rgba(201,168,76,0.2)",
-                    }}
-                  >
-                    −
-                  </button>
-                  <span
-                    className="w-9 text-center text-[0.85rem] font-semibold sm:w-8"
-                    style={{ color: "#F0E8D8" }}
-                  >
-                    {item.qty}
-                  </span>
-                  <button
-                    onClick={() => handleQtyChange(item, item.qty + 1)}
-                    disabled={atLimit}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold sm:w-7 sm:h-7"
-                    style={{
-                      background: "rgba(201,168,76,0.12)",
-                      color: atLimit ? "#5A4870" : "#C9A84C",
-                      border: "1px solid rgba(201,168,76,0.2)",
-                      cursor: atLimit ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    +
-                  </button>
-                </div>
-
-                <p
-                  className="font-bold ml-auto min-w-[76px] text-right text-[0.9rem]"
-                  style={{ color: "#C9A84C" }}
-                >
-                  ₱{(item.price * item.qty).toFixed(2)}
-                </p>
-
-                <button
-                  onClick={() => removeItem(item.productId)}
-                  className="text-[0.75rem] font-medium ml-auto sm:ml-0"
-                  style={{ color: "rgba(224,82,82,0.7)" }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = "#E05252")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color = "rgba(224,82,82,0.7)")
-                  }
-                >
-                  Remove
-                </button>
-              </div>
-            );})}
-            <div
-              className="flex justify-between items-center px-5 py-4 rounded-card"
-              style={surfaceStyle}
-            >
-              <span
-                className="font-semibold text-sm"
-                style={{ color: "#F0E8D8" }}
-              >
-                Total Amount
-              </span>
-              <span
-                className="font-bold text-lg"
-                style={{ color: "#C9A84C" }}
-              >
-                ₱{total.toFixed(2)}
-              </span>
+                <article key={item.productId} className="surface-card flex items-center gap-4 p-3 sm:p-4">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#F4F1F8] sm:h-24 sm:w-24">{item.imageUrl ? <img src={item.imageUrl} alt="" className="h-full w-full" style={{ objectFit: item.imageFit || "cover", objectPosition: item.imagePosition || "center" }} /> : <span className="flex h-full items-center justify-center text-3xl">🥐</span>}</div>
+                  <div className="min-w-0 flex-1"><h2 className="truncate text-sm font-bold sm:text-base">{item.name}</h2><p className="mt-1 text-xs text-[#6F6B78]">₱{Number(item.price).toFixed(2)} each</p><button onClick={() => removeItem(item.productId)} className="mt-3 text-xs font-semibold text-[#B42318]">Remove</button></div>
+                  <div className="flex shrink-0 flex-col items-end gap-3"><p className="text-sm font-bold text-[#462C7D]">₱{(item.price * item.qty).toFixed(2)}</p><div className="flex items-center rounded-full border border-[#E8E6ED] bg-white p-1"><button aria-label={`Decrease ${item.name} quantity`} onClick={() => handleQtyChange(item, item.qty - 1)} className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-[#462C7D] hover:bg-[#F4F1F8]">−</button><span className="w-7 text-center text-sm font-bold">{item.qty}</span><button aria-label={`Increase ${item.name} quantity`} onClick={() => handleQtyChange(item, item.qty + 1)} disabled={atLimit} className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-[#462C7D] hover:bg-[#F4F1F8] disabled:text-[#AAA6B0]">+</button></div></div>
+                </article>
+              );
+            })}
+            <div className="surface-card mt-4 p-5">
+              <div className="flex items-center justify-between"><span className="text-sm font-semibold">Total</span><span className="text-xl font-bold text-[#462C7D]">₱{total.toFixed(2)}</span></div>
+              {errors.form && <p className="mt-4 rounded-xl bg-[#FFF1F0] p-3 text-xs font-medium text-[#B42318]">{errors.form}</p>}
+              <button onClick={handleCheckout} className="btn-primary mt-5 w-full">Proceed to Payment</button>
             </div>
-            <button
-              onClick={() => navigate("/catalog")}
-              className="btn-secondary"
-            >
-              Back to Catalog
-            </button>
-          </div>
+          </section>
 
-          {/* ── Order details / checkout ── */}
-          <div className="h-fit" style={surfaceStyle}>
-            <div className="p-5">
-              <h2
-                className="font-display font-bold text-[1rem] mb-4"
-                style={{ color: "#E8C96D" }}
-              >
-                Order Details
-              </h2>
-
-              <TextInput
-                label="Your Name"
-                value={form.customerName}
-                onChange={(e) =>
-                  setForm({ ...form, customerName: e.target.value })
-                }
-                error={errors.customerName}
-                placeholder="Juan Dela Cruz"
-              />
-
-              <TextInput
-                label="Mobile Number"
-                value={form.contactNumber}
-                onChange={(e) =>
-                  setForm({ ...form, contactNumber: e.target.value })
-                }
-                error={errors.contactNumber}
-                placeholder="09XXXXXXXXX"
-              />
-
-              {/* ── Pickup Date ── */}
-              <div className="mb-4">
-                <label style={labelStyle}>Pickup Date</label>
-                <input
-                  type="date"
-                  value={form.pickupDate}
-                  min={dateRange.earliestDate}
-                  max={dateRange.latestDate}
-                  onChange={(e) =>
-                    setForm({ ...form, pickupDate: e.target.value })
-                  }
-                  style={inputStyle}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "#C9A84C";
-                    e.target.style.background = "rgba(201,168,76,0.06)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "rgba(201,168,76,0.25)";
-                    e.target.style.background = "rgba(255,255,255,0.05)";
-                  }}
-                />
-                {errors.pickupDate && (
-                  <p style={errorStyle}>{errors.pickupDate}</p>
-                )}
-              </div>
-
-              {/* ── Pickup Time ── */}
-              <div className="mb-4">
-                <label style={labelStyle}>Pickup Time</label>
-
-                {!form.pickupDate ? (
-                  <div
-                    className="px-3 py-2.5 rounded-lg text-[0.82rem]"
-                    style={{
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1.5px solid rgba(201,168,76,0.12)",
-                      color: "#5A4870",
-                    }}
-                  >
-                    Select a date first
-                  </div>
-                ) : slotsLoading ? (
-                  <div
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg"
-                    style={{
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1.5px solid rgba(201,168,76,0.12)",
-                    }}
-                  >
-                    <Spinner className="!w-4 !h-4" />
-                    <span
-                      className="text-[0.8rem]"
-                      style={{ color: "#9080A8" }}
-                    >
-                      Loading slots…
-                    </span>
-                  </div>
-                ) : slots.length === 0 ? (
-                  <div
-                    className="px-3 py-2.5 rounded-lg text-[0.82rem]"
-                    style={{
-                      background: "rgba(224,82,82,0.08)",
-                      border: "1.5px solid rgba(224,82,82,0.2)",
-                      color: "#E05252",
-                    }}
-                  >
-                    No slots available on this date. Please choose another day.
-                  </div>
-                ) : (
-                  <select
-                    value={form.pickupConfigId}
-                    onChange={(e) =>
-                      setForm({ ...form, pickupConfigId: e.target.value })
-                    }
-                    style={pickupSelectStyle}
-                  >
-                    <option value="">Select pickup time</option>
-                    {slots
-                      .filter((slot) => slot.remaining > 0)
-                      .map((slot) => (
-                        <option key={slot.configId} value={slot.configId}>
-                          {slot.label}
-                        </option>
-                      ))}
-                  </select>
-                )}
-                {errors.pickupConfigId && (
-                  <p style={errorStyle}>{errors.pickupConfigId}</p>
-                )}
-              </div>
-
-              {/* Selected pickup summary */}
-              {form.pickupDate &&
-                form.pickupConfigId &&
-                (() => {
-                  const chosen = slots.find(
-                    (s) => s.configId === form.pickupConfigId,
-                  );
-                  return chosen ? (
-                    <div
-                      className="rounded-lg px-3.5 py-2.5 mb-4 text-[0.78rem]"
-                      style={{
-                        background: "rgba(201,168,76,0.08)",
-                        border: "1px solid rgba(201,168,76,0.2)",
-                      }}
-                    >
-                      <span style={{ color: "rgba(240,232,220,0.55)" }}>
-                        Pickup:{" "}
-                      </span>
-                      <span
-                        className="font-semibold"
-                        style={{ color: "#E8C96D" }}
-                      >
-                        {formatDateLabel(form.pickupDate)}, {chosen.label}
-                      </span>
-                    </div>
-                  ) : null;
-                })()}
-
-              {/* Total */}
-              <div
-                className="flex justify-between items-center py-4 mt-2"
-                style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
-              >
-                <span
-                  className="font-semibold text-sm"
-                  style={{ color: "#F0E8D8" }}
-                >
-                  Total
-                </span>
-                <span
-                  className="font-bold text-lg"
-                  style={{ color: "#C9A84C" }}
-                >
-                  ₱{total.toFixed(2)}
-                </span>
-              </div>
-
-              {errors.form && <p style={errorStyle}>{errors.form}</p>}
-
-              <button
-                onClick={handleCheckout}
-                className="btn-primary w-full"
-              >
-                Proceed to Payment
-              </button>
-            </div>
-          </div>
+          <aside className="surface-card order-1 h-fit p-5 sm:p-6 lg:order-2">
+            <h2 className="mb-5 text-lg font-bold">Order Form</h2>
+            <TextInput label="Full Name" value={form.customerName} onChange={(event) => setForm({ ...form, customerName: event.target.value })} error={errors.customerName} placeholder="Juan Dela Cruz" />
+            <TextInput label="Mobile number" value={form.contactNumber} onChange={(event) => setForm({ ...form, contactNumber: event.target.value })} error={errors.contactNumber} placeholder="09XXXXXXXXX" />
+            <div className="mb-4"><label className="label" htmlFor="pickup-date">Pickup date</label>{dateRange.sameDayCutoffReached && <p className="mb-2 rounded-xl bg-[#F4F1F8] p-3 text-xs font-semibold text-[#462C7D]" role="status">Cutoff already reached for same-day pickup. Please choose tomorrow onwards.</p>}<input id="pickup-date" className="input" type="date" value={form.pickupDate} min={dateRange.earliestDate} max={dateRange.latestDate} onChange={(event) => setForm({ ...form, pickupDate: event.target.value })} />{errors.pickupDate && <p className="mt-1.5 text-xs font-medium text-[#B42318]">{errors.pickupDate}</p>}</div>
+            <div className="mb-4"><label className="label" htmlFor="pickup-time">Pickup time</label><p className="mb-2 text-xs text-[#6F6B78]">Cutoff time for same-day pickup is 4 PM.</p>{slotsLoading ? <div className="flex min-h-12 items-center gap-2 rounded-xl border border-[#E8E6ED] px-4"><Spinner /><span className="text-sm text-[#6F6B78]">Loading times…</span></div> : !form.pickupDate ? <div className="rounded-xl bg-[#F7F7FA] p-3 text-sm text-[#6F6B78]">Select a date first.</div> : slots.filter((slot) => slot.remaining > 0).length ? <select id="pickup-time" className="input" value={form.pickupConfigId} onChange={(event) => setForm({ ...form, pickupConfigId: event.target.value })}><option value="">Select pickup time</option>{slots.filter((slot) => slot.remaining > 0).map((slot) => <option key={slot.configId} value={slot.configId}>{slot.label}</option>)}</select> : <div className="rounded-xl border border-[#FFD6D2] bg-[#FFF1F0] p-3 text-sm text-[#B42318]">No slots available. Choose another date.</div>}{errors.pickupConfigId && <p className="mt-1.5 text-xs font-medium text-[#B42318]">{errors.pickupConfigId}</p>}</div>
+            {selectedSlot && <div className="mb-5 rounded-2xl bg-[#F4F1F8] p-4"><p className="text-xs font-semibold text-[#6F6B78]">Selected pickup</p><p className="mt-1 text-sm font-bold text-[#462C7D]">{formatDateLabel(form.pickupDate)}, {selectedSlot.label}</p></div>}
+          </aside>
         </div>
       )}
     </CustomerLayout>

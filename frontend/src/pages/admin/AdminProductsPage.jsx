@@ -19,6 +19,9 @@ const EMPTY_FORM = {
   dailyStockLimit: "",
   imageBase64: null,
   mimeType: null,
+  imagePreview: "",
+  imageFit: "cover",
+  imagePosition: "center",
 };
 
 function btnStyle(v) {
@@ -32,14 +35,14 @@ function btnStyle(v) {
     cursor: "pointer",
     border: "none",
     transition: "all 0.18s",
-    fontFamily: "Inter,sans-serif",
+    fontFamily: "Google Sans,Arial,sans-serif",
   };
   if (v === "outline")
     return {
       ...b,
       background: "transparent",
-      color: "#F0E8D8",
-      border: "1.5px solid rgba(201,168,76,0.3)",
+      color: "#17151D",
+      border: "1.5px solid rgba(70,44,125,0.3)",
     };
   if (v === "danger") return { ...b, background: "#E05252", color: "#fff" };
   return b;
@@ -83,6 +86,9 @@ export default function AdminProductsPage() {
       dailyStockLimit: p.dailyStockLimit ?? "",
       imageBase64: null,
       mimeType: null,
+      imagePreview: p.imageUrl || "",
+      imageFit: p.imageFit || "cover",
+      imagePosition: p.imagePosition || "center",
     });
     setModalOpen(true);
   }
@@ -95,6 +101,7 @@ export default function AdminProductsPage() {
         ...prev,
         imageBase64: r.result.split(",")[1],
         mimeType: f.type,
+        imagePreview: r.result,
       }));
     r.readAsDataURL(f);
   }
@@ -113,6 +120,8 @@ export default function AdminProductsPage() {
         dailyStockLimit: form.dailyStockLimit
           ? parseInt(form.dailyStockLimit)
           : null,
+        imageFit: form.imageFit,
+        imagePosition: form.imagePosition,
         ...(form.imageBase64 && {
           imageBase64: form.imageBase64,
           mimeType: form.mimeType,
@@ -149,11 +158,11 @@ export default function AdminProductsPage() {
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#E8C96D" }}
+            style={{ color: "#462C7D" }}
           >
             Products
           </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
             Manage your bakery catalog
           </p>
         </div>
@@ -171,29 +180,30 @@ export default function AdminProductsPage() {
               key={p.productId}
               className="flex flex-col overflow-hidden rounded-xl transition-all duration-200"
               style={{
-                background: "#1E1235",
-                border: "1px solid rgba(201,168,76,0.18)",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+                background: "#FFFFFF",
+                border: "1px solid rgba(70,44,125,0.18)",
+                boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.45)";
+                e.currentTarget.style.boxShadow = "0 4px 24px rgba(23,21,29,0.10)";
                 e.currentTarget.style.transform = "translateY(-2px)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.35)";
+                e.currentTarget.style.boxShadow = "0 2px 12px rgba(23,21,29,0.08)";
                 e.currentTarget.style.transform = "translateY(0)";
               }}
             >
               {/* Image */}
               <div
                 className="h-36 flex items-center justify-center relative overflow-hidden"
-                style={{ background: "#261748" }}
+                style={{ background: "#F4F1F8" }}
               >
                 {p.imageUrl ? (
                   <img
                     src={p.imageUrl}
                     alt={p.name}
                     className="w-full h-full object-cover"
+                    style={{ objectFit: p.imageFit || "cover", objectPosition: p.imagePosition || "center" }}
                   />
                 ) : (
                   <span className="text-5xl opacity-60">🍞</span>
@@ -208,9 +218,9 @@ export default function AdminProductsPage() {
                           border: "1px solid rgba(61,189,135,0.3)",
                         }
                       : {
-                          background: "rgba(255,255,255,0.05)",
-                          color: "#9080A8",
-                          border: "1px solid rgba(201,168,76,0.09)",
+                          background: "#FFFFFF",
+                          color: "#6F6B78",
+                          border: "1px solid rgba(70,44,125,0.09)",
                         }
                   }
                 >
@@ -222,13 +232,13 @@ export default function AdminProductsPage() {
               <div className="flex flex-col flex-1 p-4">
                 <div
                   className="font-bold text-[0.9rem] mb-1"
-                  style={{ color: "#F0E8D8" }}
+                  style={{ color: "#17151D" }}
                 >
                   {p.name}
                 </div>
                 <div
                   className="text-[0.74rem] capitalize mb-1"
-                  style={{ color: "#9080A8" }}
+                  style={{ color: "#6F6B78" }}
                 >
                   {p.category}
                 </div>
@@ -236,21 +246,21 @@ export default function AdminProductsPage() {
                   <div
                     className="rounded-lg p-2 mb-2 text-[0.72rem]"
                     style={{
-                      background: "rgba(201,168,76,0.07)",
-                      border: "1px solid rgba(201,168,76,0.14)",
-                      color: "#9080A8",
+                      background: "rgba(70,44,125,0.07)",
+                      border: "1px solid rgba(70,44,125,0.14)",
+                      color: "#6F6B78",
                     }}
                   >
                     <div>Stock limit: {p.dailyStockLimit}</div>
                     <div>Ordered today: {p.dailyStockUsed || 0}</div>
-                    <div style={{ color: p.dailyStockRemaining <= 0 ? "#E05252" : "#E8C96D" }}>
+                    <div style={{ color: p.dailyStockRemaining <= 0 ? "#E05252" : "#462C7D" }}>
                       Remaining: {p.dailyStockRemaining ?? p.dailyStockLimit}
                     </div>
                   </div>
                 )}
                 <div
                   className="font-bold text-[1rem] mt-auto mb-3"
-                  style={{ color: "#C9A84C" }}
+                  style={{ color: "#462C7D" }}
                 >
                   ₱{p.price?.toFixed(2)}
                 </div>
@@ -260,7 +270,7 @@ export default function AdminProductsPage() {
               <div
                 className="grid grid-cols-2 gap-2 px-4 pb-4"
                 style={{
-                  borderTop: "1px solid rgba(201,168,76,0.09)",
+                  borderTop: "1px solid rgba(70,44,125,0.09)",
                   paddingTop: "12px",
                 }}
               >
@@ -268,12 +278,12 @@ export default function AdminProductsPage() {
                   style={btnStyle("outline")}
                   onClick={() => openEdit(p)}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#C9A84C";
-                    e.currentTarget.style.color = "#C9A84C";
+                    e.currentTarget.style.borderColor = "#462C7D";
+                    e.currentTarget.style.color = "#462C7D";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(201,168,76,0.3)";
-                    e.currentTarget.style.color = "#F0E8D8";
+                    e.currentTarget.style.borderColor = "rgba(70,44,125,0.3)";
+                    e.currentTarget.style.color = "#17151D";
                   }}
                 >
                   Edit
@@ -296,7 +306,7 @@ export default function AdminProductsPage() {
           {products.length === 0 && (
             <div
               className="col-span-full text-center py-20"
-              style={{ color: "#9080A8" }}
+              style={{ color: "#6F6B78" }}
             >
               <div className="text-4xl mb-3 opacity-40">🍞</div>
               <p className="text-[0.86rem]">No products yet.</p>
@@ -310,7 +320,7 @@ export default function AdminProductsPage() {
         onClose={() => setModalOpen(false)}
         title={editing ? "Edit Product" : "Add Product"}
       >
-        <p className="text-[0.78rem] mb-4" style={{ color: "#9080A8" }}>
+        <p className="text-[0.78rem] mb-4" style={{ color: "#6F6B78" }}>
           Fill in the details below. Changes apply to future orders only.
         </p>
         <TextInput
@@ -353,9 +363,37 @@ export default function AdminProductsPage() {
             accept="image/*"
             onChange={handleImage}
             className="text-[0.82rem] w-full"
-            style={{ color: "#9080A8" }}
+            style={{ color: "#6F6B78" }}
           />
+          {form.imagePreview && (
+            <div className="mt-3 h-44 overflow-hidden rounded-xl border border-[#E8E6ED] bg-[#F4F1F8]">
+              <img src={form.imagePreview} alt="Catalog image preview" className="h-full w-full" style={{ objectFit: form.imageFit, objectPosition: form.imagePosition }} />
+            </div>
+          )}
         </div>
+        <fieldset className="mb-4">
+          <legend className="label">Catalog Image Display</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {[{ value: "cover", label: "Crop / Fill" }, { value: "contain", label: "Fit Entire Image" }].map((option) => (
+              <label key={option.value} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold ${form.imageFit === option.value ? "border-[#462C7D] bg-[#F4F1F8] text-[#462C7D]" : "border-[#E8E6ED] text-[#6F6B78]"}`}>
+                <input type="radio" name="image-fit" value={option.value} checked={form.imageFit === option.value} onChange={(e) => setForm({ ...form, imageFit: e.target.value })} className="accent-[#462C7D]" />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <SelectInput
+          label="Image Focus"
+          value={form.imagePosition}
+          onChange={(e) => setForm({ ...form, imagePosition: e.target.value })}
+          options={[
+            { value: "center", label: "Center" },
+            { value: "top", label: "Top" },
+            { value: "bottom", label: "Bottom" },
+            { value: "left", label: "Left" },
+            { value: "right", label: "Right" },
+          ]}
+        />
         {/* Toggle */}
         <div className="flex items-center gap-3 mb-5">
           <label className="relative w-9 h-5 flex-shrink-0 cursor-pointer">
@@ -369,7 +407,7 @@ export default function AdminProductsPage() {
             />
             <div
               className="w-9 h-5 rounded-full transition-colors duration-200"
-              style={{ background: form.isAvailable ? "#3DBD87" : "#5A4870" }}
+              style={{ background: form.isAvailable ? "#3DBD87" : "#AAA6B0" }}
             >
               <div
                 className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
@@ -383,14 +421,14 @@ export default function AdminProductsPage() {
           </label>
           <span
             className="text-[0.83rem] font-semibold"
-            style={{ color: "#F0E8D8" }}
+            style={{ color: "#17151D" }}
           >
             Active (visible to customers)
           </span>
         </div>
         <div
           className="flex gap-3 justify-end pt-2"
-          style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
+          style={{ borderTop: "1px solid rgba(70,44,125,0.12)" }}
         >
           <button onClick={() => setModalOpen(false)} className="btn-secondary">
             Cancel

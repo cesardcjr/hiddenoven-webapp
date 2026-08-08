@@ -19,21 +19,21 @@ function btnStyle(v) {
     cursor: "pointer",
     border: "none",
     transition: "all 0.18s",
-    fontFamily: "Inter,sans-serif",
+    fontFamily: "Google Sans,Arial,sans-serif",
   };
   if (v === "outline")
     return {
       ...b,
       background: "transparent",
-      color: "#F0E8D8",
-      border: "1.5px solid rgba(201,168,76,0.3)",
+      color: "#17151D",
+      border: "1.5px solid rgba(70,44,125,0.3)",
     };
   if (v === "ghost")
     return {
       ...b,
       background: "transparent",
-      color: "#9080A8",
-      border: "1.5px solid rgba(201,168,76,0.18)",
+      color: "#6F6B78",
+      border: "1.5px solid rgba(70,44,125,0.18)",
     };
   if (v === "danger") return { ...b, background: "#E05252", color: "#fff" };
   return b;
@@ -107,11 +107,11 @@ export default function AdminStaffPage() {
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#E8C96D" }}
+            style={{ color: "#462C7D" }}
           >
             Staff Accounts
           </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
             Manage access and roles
           </p>
         </div>
@@ -135,22 +135,22 @@ export default function AdminStaffPage() {
               key={s.uid}
               className="flex flex-col overflow-hidden rounded-xl"
               style={{
-                background: "#1E1235",
-                border: "1px solid rgba(201,168,76,0.18)",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+                background: "#FFFFFF",
+                border: "1px solid rgba(70,44,125,0.18)",
+                boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
               }}
             >
               {/* Avatar area */}
               <div
                 className="flex flex-col items-center gap-2 py-5"
                 style={{
-                  background: "#261748",
-                  borderBottom: "1px solid rgba(201,168,76,0.09)",
+                  background: "#F4F1F8",
+                  borderBottom: "1px solid rgba(70,44,125,0.09)",
                 }}
               >
                 <div
                   className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-bold"
-                  style={{ background: "#C9A84C", color: "#1A0F2E" }}
+                  style={{ background: "#462C7D", color: "#FFFFFF" }}
                 >
                   {s.name?.charAt(0)?.toUpperCase()}
                 </div>
@@ -164,9 +164,9 @@ export default function AdminStaffPage() {
                           border: "1px solid rgba(61,189,135,0.3)",
                         }
                       : {
-                          background: "rgba(255,255,255,0.05)",
-                          color: "#9080A8",
-                          border: "1px solid rgba(201,168,76,0.09)",
+                          background: "#FFFFFF",
+                          color: "#6F6B78",
+                          border: "1px solid rgba(70,44,125,0.09)",
                         }
                   }
                 >
@@ -178,13 +178,13 @@ export default function AdminStaffPage() {
               <div className="flex flex-col flex-1 p-4">
                 <div
                   className="font-bold text-[0.9rem] mb-1"
-                  style={{ color: "#F0E8D8" }}
+                  style={{ color: "#17151D" }}
                 >
                   {s.name}
                 </div>
                 <div
                   className="text-[0.74rem] mb-2 truncate"
-                  style={{ color: "#9080A8" }}
+                  style={{ color: "#6F6B78" }}
                 >
                   {s.email}
                 </div>
@@ -209,7 +209,7 @@ export default function AdminStaffPage() {
                 {s.phone && (
                   <div
                     className="text-[0.72rem] mt-1"
-                    style={{ color: "#9080A8" }}
+                    style={{ color: "#6F6B78" }}
                   >
                     {s.phone}
                   </div>
@@ -220,19 +220,19 @@ export default function AdminStaffPage() {
               <div
                 className="grid grid-cols-2 gap-2 px-4 pb-4"
                 style={{
-                  borderTop: "1px solid rgba(201,168,76,0.09)",
+                  borderTop: "1px solid rgba(70,44,125,0.09)",
                   paddingTop: "12px",
                 }}
               >
                 <button
                   style={btnStyle("outline")}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#C9A84C";
-                    e.currentTarget.style.color = "#C9A84C";
+                    e.currentTarget.style.borderColor = "#462C7D";
+                    e.currentTarget.style.color = "#462C7D";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(201,168,76,0.3)";
-                    e.currentTarget.style.color = "#F0E8D8";
+                    e.currentTarget.style.borderColor = "rgba(70,44,125,0.3)";
+                    e.currentTarget.style.color = "#17151D";
                   }}
                 >
                   Edit
@@ -241,12 +241,12 @@ export default function AdminStaffPage() {
                   style={btnStyle(s.isActive ? "danger" : "ghost")}
                   onClick={() => handleToggle(s)}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#9080A8";
-                    e.currentTarget.style.color = "#F0E8D8";
+                    e.currentTarget.style.borderColor = "#6F6B78";
+                    e.currentTarget.style.color = "#17151D";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(201,168,76,0.18)";
-                    e.currentTarget.style.color = "#9080A8";
+                    e.currentTarget.style.borderColor = "rgba(70,44,125,0.18)";
+                    e.currentTarget.style.color = "#6F6B78";
                   }}
                 >
                   {s.isActive ? "Delete" : "Activate"}
@@ -257,7 +257,7 @@ export default function AdminStaffPage() {
           {staff.length === 0 && (
             <div
               className="col-span-full text-center py-20"
-              style={{ color: "#9080A8" }}
+              style={{ color: "#6F6B78" }}
             >
               <div className="text-4xl mb-3 opacity-40">👥</div>
               <p className="text-[0.86rem]">No staff accounts yet.</p>
@@ -271,7 +271,7 @@ export default function AdminStaffPage() {
         onClose={() => setModalOpen(false)}
         title="Add Staff Member"
       >
-        <p className="text-[0.78rem] mb-4" style={{ color: "#9080A8" }}>
+        <p className="text-[0.78rem] mb-4" style={{ color: "#6F6B78" }}>
           New staff will receive login credentials via email.
         </p>
         <TextInput
@@ -301,7 +301,7 @@ export default function AdminStaffPage() {
         />
         <div
           className="flex gap-3 justify-end pt-2 mt-2"
-          style={{ borderTop: "1px solid rgba(201,168,76,0.12)" }}
+          style={{ borderTop: "1px solid rgba(70,44,125,0.12)" }}
         >
           <button onClick={() => setModalOpen(false)} className="btn-secondary">
             Cancel

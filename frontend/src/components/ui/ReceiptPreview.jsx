@@ -44,9 +44,9 @@ export function ReceiptPreview({ proofId, label = "Payment Receipt" }) {
     width: "96px",
     height: "96px",
     borderRadius: "8px",
-    background: "#261748",
-    border: "1.5px solid rgba(201,168,76,0.22)",
-    color: "#9080A8",
+    background: "#F4F1F8",
+    border: "1.5px solid rgba(70,44,125,0.22)",
+    color: "#6F6B78",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -61,12 +61,12 @@ export function ReceiptPreview({ proofId, label = "Payment Receipt" }) {
         className="rounded-lg p-3"
         style={{
           background: "rgba(255,255,255,0.035)",
-          border: "1px solid rgba(201,168,76,0.12)",
+          border: "1px solid rgba(70,44,125,0.12)",
         }}
       >
         <div
           className="text-[0.65rem] font-bold uppercase tracking-[0.5px] mb-2"
-          style={{ color: "#9080A8" }}
+          style={{ color: "#6F6B78" }}
         >
           {label}
         </div>
@@ -109,7 +109,7 @@ export function ReceiptPreview({ proofId, label = "Payment Receipt" }) {
               maxHeight: "75vh",
               objectFit: "contain",
               borderRadius: "8px",
-              background: "#261748",
+              background: "#F4F1F8",
             }}
           />
         )}
