@@ -8,8 +8,8 @@ const KPI_CONFIG = [
     key: "totalRevenue",
     label: "💰 Total Revenue",
     format: (v) => `₱${v.toFixed(2)}`,
-    accent: "#C9A84C",
-    topColor: "#C9A84C",
+    accent: "#462C7D",
+    topColor: "#462C7D",
   },
   {
     key: "total",
@@ -46,15 +46,15 @@ function KpiCard({ label, value, accent, topColor }) {
     <div
       className="rounded-xl p-4"
       style={{
-        background: "#1E1235",
-        border: "1px solid rgba(201,168,76,0.18)",
+        background: "#FFFFFF",
+        border: "1px solid rgba(70,44,125,0.18)",
         borderTop: `3px solid ${topColor}`,
-        boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+        boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
       }}
     >
       <div
         className="text-[0.68rem] font-bold uppercase tracking-[0.5px] mb-2"
-        style={{ color: "#9080A8" }}
+        style={{ color: "#6F6B78" }}
       >
         {label}
       </div>
@@ -69,7 +69,7 @@ function KpiCard({ label, value, accent, topColor }) {
 }
 
 function toInputDate(date) {
-  return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function getReportRange(filter, customFrom, customTo) {
@@ -80,7 +80,7 @@ function getReportRange(filter, customFrom, customTo) {
     return { from: toInputDate(from), to: toInputDate(now) };
   }
   if (filter === "monthly") {
-    const from = new Date(now.getFullYear(), 0, 1);
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
     return { from: toInputDate(from), to: toInputDate(now) };
   }
   if (filter === "custom") return { from: customFrom, to: customTo };
@@ -94,112 +94,117 @@ function dateFromValue(value) {
   return value ? new Date(value) : null;
 }
 
-function buildTrend(transactions, filter) {
-  const now = new Date();
-  if (filter === "daily") {
-    const buckets = Array.from({ length: 24 }, (_, hour) => ({
-      label: `${String(hour).padStart(2, "0")}:00`,
-      qty: 0,
-    }));
-    transactions.forEach((tx) => {
-      const date = dateFromValue(tx.orderDate);
-      if (!date) return;
-      buckets[date.getHours()].qty += tx.totalQty || 0;
-    });
-    return buckets;
-  }
-  if (filter === "monthly") {
-    const months = Array.from({ length: now.getMonth() + 1 }, (_, month) => ({
-      label: new Date(now.getFullYear(), month, 1).toLocaleString("en-PH", {
-        month: "short",
-      }),
-      qty: 0,
-    })).slice(-12);
-    transactions.forEach((tx) => {
-      const date = dateFromValue(tx.orderDate);
-      if (!date || date.getFullYear() !== now.getFullYear()) return;
-      if (months[date.getMonth()]) months[date.getMonth()].qty += tx.totalQty || 0;
-    });
-    return months;
-  }
-
-  const byDay = {};
-  transactions.forEach((tx) => {
-    const date = dateFromValue(tx.orderDate);
-    if (!date) return;
-    const key = date.toISOString().slice(0, 10);
-    byDay[key] = (byDay[key] || 0) + (tx.totalQty || 0);
-  });
-  return Object.entries(byDay)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, qty]) => ({
-      label: new Date(`${key}T00:00:00`).toLocaleDateString("en-PH", {
-        month: "short",
-        day: "numeric",
-      }),
-      qty,
-    }));
+function buildTrend(transactions) {
+  return transactions
+    .map((transaction) => ({
+      orderNo: transaction.orderNo || "Order",
+      orderDate: dateFromValue(transaction.orderDate),
+      qty: Number(transaction.totalQty) || 0,
+    }))
+    .filter((transaction) => transaction.orderDate)
+    .sort((a, b) => a.orderDate - b.orderDate);
 }
 
 function TrendChart({ data }) {
-  const max = Math.max(1, ...data.map((d) => d.qty));
-  const points = data.map((d, idx) => {
-    const x = data.length <= 1 ? 50 : (idx / (data.length - 1)) * 100;
-    const y = 94 - (d.qty / max) * 82;
-    return `${x},${y}`;
+  if (!data.length) {
+    return <p className="py-12 text-center text-sm text-[#6F6B78]">No completed orders found for this period.</p>;
+  }
+
+  const width = Math.max(720, data.length * 72);
+  const height = 280;
+  const margin = { top: 18, right: 24, bottom: 54, left: 52 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const maxQty = Math.max(1, ...data.map((point) => point.qty));
+  const tickStep = Math.max(1, Math.ceil(maxQty / 4));
+  const yMax = tickStep * 4;
+  const yTicks = Array.from({ length: 5 }, (_, index) => index * tickStep);
+  const pointPosition = (point, index) => ({
+    x: margin.left + (data.length <= 1 ? plotWidth / 2 : (index / (data.length - 1)) * plotWidth),
+    y: margin.top + plotHeight - (point.qty / yMax) * plotHeight,
   });
+  const positions = data.map(pointPosition);
+  const labelEvery = Math.max(1, Math.ceil(data.length / 10));
 
   return (
-    <div>
-      <div className="h-64">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
-          <defs>
-            <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#C9A84C" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#C9A84C" stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
+    <div className="overflow-x-auto pb-2">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-[280px]"
+        style={{ minWidth: `${width}px`, width: "100%" }}
+        role="img"
+        aria-label="Line chart showing item quantity for each completed order"
+      >
+        {yTicks.map((tick) => {
+          const y = margin.top + plotHeight - (tick / yMax) * plotHeight;
+          return (
+            <g key={tick}>
+              <line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#E8E2F2" strokeWidth="1" />
+              <text x={margin.left - 12} y={y + 4} textAnchor="end" fontSize="11" fill="#6F6B78">{tick}</text>
+            </g>
+          );
+        })}
+        <line x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} stroke="#CFC4E2" />
+        <line x1={margin.left} x2={width - margin.right} y1={margin.top + plotHeight} y2={margin.top + plotHeight} stroke="#CFC4E2" />
+        <text
+          x="15"
+          y={margin.top + plotHeight / 2}
+          transform={`rotate(-90 15 ${margin.top + plotHeight / 2})`}
+          textAnchor="middle"
+          fontSize="11"
+          fontWeight="700"
+          fill="#6F6B78"
+        >
+          Item quantity
+        </text>
+        {data.length > 1 && (
           <polyline
-            points={`0,96 ${points.join(" ")} 100,96`}
-            fill="url(#trendFill)"
-            stroke="none"
-          />
-          <polyline
-            points={points.join(" ")}
+            points={positions.map(({ x, y }) => `${x},${y}`).join(" ")}
             fill="none"
-            stroke="#E8C96D"
-            strokeWidth="1.8"
-            vectorEffect="non-scaling-stroke"
+            stroke="#A78BFA"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          {data.map((d, idx) => {
-            const x = data.length <= 1 ? 50 : (idx / (data.length - 1)) * 100;
-            const y = 94 - (d.qty / max) * 82;
-            return (
+        )}
+        {data.map((point, index) => {
+          const { x, y } = positions[index];
+          const showLabel = index % labelEvery === 0 || index === data.length - 1;
+          return (
+            <g key={`${point.orderNo}-${index}`}>
               <circle
-                key={`${d.label}-${idx}`}
                 cx={x}
                 cy={y}
-                r="1.6"
-                fill="#C9A84C"
-                vectorEffect="non-scaling-stroke"
-              />
-            );
-          })}
-        </svg>
-      </div>
-      <div className="grid gap-1 mt-3" style={{ gridTemplateColumns: `repeat(${Math.min(data.length || 1, 12)}, minmax(0, 1fr))` }}>
-        {data
-          .filter((_, idx) => data.length <= 12 || idx % Math.ceil(data.length / 12) === 0)
-          .map((d) => (
-            <div key={d.label} className="text-center text-[0.65rem]" style={{ color: "#9080A8" }}>
-              <div className="font-bold" style={{ color: "#E8C96D" }}>{d.qty}</div>
-              {d.label}
-            </div>
-          ))}
-      </div>
+                r="5"
+                fill="#A78BFA"
+                stroke="#FFFFFF"
+                strokeWidth="2"
+              >
+                <title>{`${point.orderNo}: ${point.qty} item${point.qty === 1 ? "" : "s"}`}</title>
+              </circle>
+              <text x={x} y={y - 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="#7452A8">{point.qty}</text>
+              {showLabel && (
+                <text x={x} y={height - 24} textAnchor="middle" fontSize="10" fill="#6F6B78">
+                  {point.orderNo.replace(/^HO-\d{8}-/, "#")}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
     </div>
+  );
+}
+
+function OrderSourceCard({ online, walkIn, loading, filter }) {
+  return (
+    <section className="mb-6 rounded-xl border border-[rgba(70,44,125,0.18)] bg-white p-5 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><h3 className="font-display font-bold text-[#462C7D]">Order Sources</h3><p className="mt-0.5 text-xs capitalize text-[#6F6B78]">{filter} order totals</p></div>
+        <span className="rounded-full bg-[#F4F1F8] px-3 py-1 text-xs font-bold text-[#462C7D]">Online vs walk-in</span>
+      </div>
+      {loading ? <Spinner className="py-5" /> : <div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-[#F7F7FA] p-4"><p className="text-xs font-semibold text-[#6F6B78]">Total online orders</p><p className="mt-1 text-2xl font-bold text-[#462C7D]">{online}</p></div><div className="rounded-xl bg-[#F4F1F8] p-4"><p className="text-xs font-semibold text-[#6F6B78]">Total walk-in orders</p><p className="mt-1 text-2xl font-bold text-[#462C7D]">{walkIn}</p></div></div>}
+    </section>
   );
 }
 
@@ -240,8 +245,8 @@ export default function AdminDashboardPage() {
   }, [filter, customFrom, customTo]);
 
   const trend = useMemo(
-    () => buildTrend(report?.transactions || [], filter),
-    [report, filter],
+    () => buildTrend(report?.transactions || []),
+    [report],
   );
 
   if (loading)
@@ -270,11 +275,11 @@ export default function AdminDashboardPage() {
         <div>
           <h2
             className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#E8C96D" }}
+            style={{ color: "#462C7D" }}
           >
             Dashboard
           </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#9080A8" }}>
+          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
             Live order and revenue overview
           </p>
         </div>
@@ -292,24 +297,31 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
+      <OrderSourceCard
+        online={report?.onlineOrderCount || 0}
+        walkIn={report?.walkInOrderCount || 0}
+        loading={reportLoading}
+        filter={filter}
+      />
+
       <div
         className="rounded-xl p-5 mb-6"
         style={{
-          background: "#1E1235",
-          border: "1px solid rgba(201,168,76,0.18)",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+          background: "#FFFFFF",
+          border: "1px solid rgba(70,44,125,0.18)",
+          boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
         }}
       >
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
           <div>
             <div
               className="font-display font-bold text-[1rem]"
-              style={{ color: "#E8C96D" }}
+              style={{ color: "#462C7D" }}
             >
-              Order Quantity Trend
+              Order Quantity by Order
             </div>
-            <p className="text-[0.74rem]" style={{ color: "#9080A8" }}>
-              Total ordered quantity based on completed transactions
+            <p className="text-[0.74rem]" style={{ color: "#6F6B78" }}>
+              Each point shows the total item quantity for one completed order
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -320,9 +332,9 @@ export default function AdminDashboardPage() {
                 onClick={() => setFilter(mode)}
                 className="rounded-full px-3 py-1.5 text-[0.72rem] font-bold capitalize"
                 style={{
-                  background: filter === mode ? "#C9A84C" : "transparent",
-                  color: filter === mode ? "#1A0F2E" : "#9080A8",
-                  border: "1.5px solid rgba(201,168,76,0.25)",
+                  background: filter === mode ? "#462C7D" : "transparent",
+                  color: filter === mode ? "#FFFFFF" : "#6F6B78",
+                  border: "1.5px solid rgba(70,44,125,0.25)",
                 }}
               >
                 {mode}
@@ -357,19 +369,19 @@ export default function AdminDashboardPage() {
       <div
         className="rounded-xl p-5"
         style={{
-          background: "#1E1235",
-          border: "1px solid rgba(201,168,76,0.18)",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+          background: "#FFFFFF",
+          border: "1px solid rgba(70,44,125,0.18)",
+          boxShadow: "0 2px 12px rgba(23,21,29,0.08)",
         }}
       >
         <div
           className="font-display font-bold text-[1rem] mb-4"
-          style={{ color: "#E8C96D" }}
+          style={{ color: "#462C7D" }}
         >
           Top Products
         </div>
         {(report?.topProducts || []).length === 0 ? (
-          <p className="text-[0.82rem]" style={{ color: "#9080A8" }}>
+          <p className="text-[0.82rem]" style={{ color: "#6F6B78" }}>
             No completed product sales for this filter.
           </p>
         ) : (
@@ -379,17 +391,17 @@ export default function AdminDashboardPage() {
                 key={product.productId}
                 className="rounded-lg p-3"
                 style={{
-                  background: "#261748",
-                  border: "1px solid rgba(201,168,76,0.14)",
+                  background: "#F4F1F8",
+                  border: "1px solid rgba(70,44,125,0.14)",
                 }}
               >
-                <div className="text-[0.68rem] font-bold" style={{ color: "#9080A8" }}>
+                <div className="text-[0.68rem] font-bold" style={{ color: "#6F6B78" }}>
                   #{idx + 1}
                 </div>
-                <div className="font-bold" style={{ color: "#F0E8D8" }}>
+                <div className="font-bold" style={{ color: "#17151D" }}>
                   {product.productName || product.productId}
                 </div>
-                <div className="text-[0.78rem] mt-1" style={{ color: "#E8C96D" }}>
+                <div className="text-[0.78rem] mt-1" style={{ color: "#462C7D" }}>
                   {product.qty} sold · ₱{Number(product.revenue || 0).toFixed(2)}
                 </div>
               </div>

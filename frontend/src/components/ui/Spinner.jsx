@@ -4,8 +4,8 @@ export function Spinner({ className = "" }) {
       <div
         className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
         style={{
-          borderColor: "rgba(201,168,76,0.25)",
-          borderTopColor: "#C9A84C",
+          borderColor: "rgba(70,44,125,0.18)",
+          borderTopColor: "#462C7D",
         }}
       />
     </div>

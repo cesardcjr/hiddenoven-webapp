@@ -71,6 +71,8 @@ export const api = {
     request("GET", `/api/orders/track?${new URLSearchParams(params)}`),
   updateStatus: (orderId, status, metadata = {}) =>
     request("PATCH", `/api/orders/${orderId}/status`, { status, ...metadata }),
+  createWalkInOrder: (payload) =>
+    request("POST", "/api/walk-in-orders", payload),
 
   // Dashboard & Reports
   getDashboard: () => request("GET", "/api/dashboard/summary"),

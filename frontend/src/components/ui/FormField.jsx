@@ -6,12 +6,12 @@ export function FormField({ label, error, hint, children }) {
       {label && <label className="label">{label}</label>}
       {children}
       {hint && !error && (
-        <p className="mt-1 text-[0.7rem]" style={{ color: "#9080A8" }}>
+        <p className="mt-1.5 text-xs text-[#6F6B78]">
           {hint}
         </p>
       )}
       {error && (
-        <p className="mt-1 text-[0.72rem]" style={{ color: "#E05252" }}>
+        <p className="mt-1.5 text-xs font-medium text-[#B42318]" role="alert">
           {error}
         </p>
       )}
@@ -42,12 +42,7 @@ export function PasswordInput({ label, error, hint, ...props }) {
           onClick={() => setVisible((v) => !v)}
           tabIndex={-1}
           aria-label={visible ? "Hide password" : "Show password"}
-          className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors duration-150"
-          style={{ color: "rgba(240,232,220,0.35)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#C9A84C")}
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.color = "rgba(240,232,220,0.35)")
-          }
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#6F6B78] transition-colors hover:text-[#462C7D]"
         >
           {visible ? (
             <svg
@@ -91,16 +86,12 @@ export function PasswordInput({ label, error, hint, ...props }) {
 export function SelectInput({ label, error, hint, options = [], ...props }) {
   return (
     <FormField label={label} error={error} hint={hint}>
-      <select className="input" style={{ background: "#1E1235" }} {...props}>
-        <option value="" style={{ background: "#261748" }}>
+      <select className="input" {...props}>
+        <option value="">
           Select…
         </option>
         {options.map((o) => (
-          <option
-            key={o.value}
-            value={o.value}
-            style={{ background: "#261748" }}
-          >
+          <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
