@@ -215,7 +215,7 @@ export default function AdminPickupTimesPage() {
         </p>
         <p style={{ color: "rgba(23,21,29,0.65)" }}>
           Same-day pickup slots must be at least{" "}
-          <strong style={{ color: "#17151D" }}>1.5 hours after the order time.</strong>
+          <strong style={{ color: "#17151D" }}>2 hours after the order time.</strong>
         </p>
         <p style={{ color: "rgba(23,21,29,0.65)" }}>
           At <strong style={{ color: "#17151D" }}>4:00 PM or later</strong>,

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useCart } from "../../context/CartContext";
@@ -13,7 +12,6 @@ import { Swal } from "../../lib/swal";
 const CATEGORIES = ["All", "Bread", "Pastry", "Cake"];
 
 export default function CatalogPage() {
-  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("All");
@@ -56,17 +54,12 @@ export default function CatalogPage() {
     if (isOutOfStock(product)) return;
     addItem(product, quantityFor(product));
     setQuantities((current) => ({ ...current, [product.productId]: 1 }));
-    const result = await Swal.fire({
-      title: "Added to Cart",
+    await Swal.fire({
+      title: "Item added to cart!",
       icon: "success",
-      text: "Proceed to Checkout?",
-      draggable: true,
-      showCancelButton: true,
-      confirmButtonText: "Okay",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#462C7D",
+      showConfirmButton: false,
+      timer: 1100,
     });
-    if (result.isConfirmed) navigate("/cart");
   }
 
   return (

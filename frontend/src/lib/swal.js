@@ -169,7 +169,9 @@ export const Swal = {
         },
       });
 
+      let dismissTimer = null;
       const cleanup = (result) => {
+        if (dismissTimer) window.clearTimeout(dismissTimer);
         overlay.remove();
         resolve(result);
       };
@@ -196,39 +198,47 @@ export const Swal = {
         );
       }
 
-      actions.append(
-        createElement(
-          "button",
-          {
-            type: "button",
-            style: {
-              padding: "9px 16px",
-              borderRadius: "9px",
-              border: "none",
-              background: options.confirmButtonColor || "#462C7D",
-              color: "#FFFFFF",
-              cursor: "pointer",
-              fontWeight: "800",
-            },
-            onClick: () => {
-              const value = inputEl?.value?.trim() || "";
-              if (options.inputValidator) {
-                const validationMessage = options.inputValidator(value);
-                if (validationMessage) {
-                  inputEl.focus();
-                  return;
+      if (options.showConfirmButton !== false) {
+        actions.append(
+          createElement(
+            "button",
+            {
+              type: "button",
+              style: {
+                padding: "9px 16px",
+                borderRadius: "9px",
+                border: "none",
+                background: options.confirmButtonColor || "#462C7D",
+                color: "#FFFFFF",
+                cursor: "pointer",
+                fontWeight: "800",
+              },
+              onClick: () => {
+                const value = inputEl?.value?.trim() || "";
+                if (options.inputValidator) {
+                  const validationMessage = options.inputValidator(value);
+                  if (validationMessage) {
+                    inputEl.focus();
+                    return;
+                  }
                 }
-              }
-              cleanup({ isConfirmed: true, value });
+                cleanup({ isConfirmed: true, value });
+              },
             },
-          },
-          [options.confirmButtonText || "OK"],
-        ),
-      );
+            [options.confirmButtonText || "OK"],
+          ),
+        );
+      }
 
-      box.append(actions);
+      if (actions.childElementCount) box.append(actions);
       overlay.append(box);
       document.body.append(overlay);
+      if (Number(options.timer) > 0) {
+        dismissTimer = window.setTimeout(
+          () => cleanup({ isConfirmed: false, isDismissed: true, dismiss: "timer" }),
+          Number(options.timer),
+        );
+      }
       inputEl?.focus();
     });
   },

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   collection,
   getDocs,
@@ -202,6 +203,29 @@ function btnStyle(variant) {
   return base;
 }
 
+function OrderIdentifier({ children, tone = "purple" }) {
+  const tones = {
+    purple: { background: "#462C7D", color: "#FFFFFF" },
+    gold: { background: "#FACC15", color: "#17151D" },
+  };
+  return (
+    <span
+      style={{
+        ...tones[tone],
+        borderRadius: "999px",
+        fontSize: "0.56rem",
+        fontWeight: 800,
+        letterSpacing: "0.04em",
+        padding: "2px 6px",
+        textTransform: "uppercase",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
   const transitions = TRANSITIONS[order.status] || [];
   const isBulk = (Number(order.totalQty) || 0) > 20;
@@ -230,9 +254,10 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
       >
         <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
           {order.orderType === "WALK_IN" && (
-            <span style={{ borderRadius: "999px", background: "#462C7D", color: "#FFFFFF", fontSize: "0.58rem", fontWeight: 800, padding: "3px 7px", textTransform: "uppercase" }}>
-              Walk-in
-            </span>
+            <OrderIdentifier>Walk-in</OrderIdentifier>
+          )}
+          {isBulk && (
+            <OrderIdentifier tone="gold">Bulk</OrderIdentifier>
           )}
           <span
             style={{
@@ -259,22 +284,6 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
-          {isBulk && (
-            <span
-              style={{
-                borderRadius: "999px",
-                background: "rgba(70,44,125,0.1)",
-                color: "#462C7D",
-                fontSize: "0.62rem",
-                fontWeight: 800,
-                letterSpacing: "0.04em",
-                padding: "3px 8px",
-                textTransform: "uppercase",
-              }}
-            >
-              Bulk
-            </span>
-          )}
           <span style={{ color: "#AAA6B0", fontSize: "0.68rem", whiteSpace: "nowrap" }}>
             {ageStr(order.createdAt)}
           </span>
@@ -828,10 +837,14 @@ function OrderDetailsModal({
 }
 
 export default function StaffOrdersPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedQueue = searchParams.get("queue");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
-  const [activeTab, setActiveTab] = useState("NEW");
+  const [activeTab, setActiveTab] = useState(
+    COLUMNS.some((column) => column.status === requestedQueue) ? requestedQueue : "NEW",
+  );
   const [search, setSearch] = useState("");
   const tomorrow = getPHTDateString(1);
   const [advanceFilter, setAdvanceFilter] = useState("all");
@@ -842,6 +855,17 @@ export default function StaffOrdersPage() {
   const [selectedProof, setSelectedProof] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const { showToast, ToastContainer } = useToast();
+
+  useEffect(() => {
+    if (COLUMNS.some((column) => column.status === requestedQueue)) {
+      setActiveTab(requestedQueue);
+    }
+  }, [requestedQueue]);
+
+  function selectQueue(status) {
+    setActiveTab(status);
+    setSearchParams({ queue: status }, { replace: true });
+  }
 
   useEffect(() => {
     const q = query(
@@ -1042,7 +1066,7 @@ export default function StaffOrdersPage() {
       orderCount={orders.length}
       statusItems={sidebarItems}
       activeStatus={activeCol.status}
-      onStatusSelect={setActiveTab}
+      onStatusSelect={selectQueue}
     >
       <ToastContainer />
 

@@ -131,7 +131,7 @@ router.post("/", async (req, res, next) => {
       const config = configSnap.data();
       if (!isPickupSlotAllowed(pickupDate, config.startMinutes)) {
         const error = new Error(
-          "This pickup time is no longer available. Choose a slot at least 90 minutes ahead, or select tomorrow after 4 PM.",
+          "This pickup time is no longer available. Choose a slot at least 2 hours ahead, or select tomorrow after 4 PM.",
         );
         error.status = 400;
         throw error;
@@ -360,7 +360,7 @@ router.post("/with-payment", async (req, res, next) => {
       const config = configSnap.data();
       if (!isPickupSlotAllowed(pickupDate, config.startMinutes)) {
         const error = new Error(
-          "This pickup time is no longer available. Choose a slot at least 90 minutes ahead, or select tomorrow after 4 PM.",
+          "This pickup time is no longer available. Choose a slot at least 2 hours ahead, or select tomorrow after 4 PM.",
         );
         error.status = 400;
         throw error;

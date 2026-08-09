@@ -1,6 +1,6 @@
 const PH_OFFSET_MS = 8 * 60 * 60 * 1000;
 const SAME_DAY_CUTOFF_MINUTES = 16 * 60;
-const MINIMUM_LEAD_MINUTES = 90;
+const MINIMUM_LEAD_MINUTES = 120;
 const SHOP_OPEN_MINUTES = 10 * 60;
 
 function formatPHTDate(date) {

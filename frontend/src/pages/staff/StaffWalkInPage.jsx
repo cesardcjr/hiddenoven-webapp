@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { collection, getDocs, onSnapshot, query, where } from "firebase/firestore";
 import { StaffLayout } from "../../components/layout/StaffLayout";
 import { Spinner } from "../../components/ui/Spinner";
 import { TextInput } from "../../components/ui/FormField";
-import { ShoppingCartIcon } from "../../components/ui/Icons";
+import { CalendarClockIcon, PackageStackIcon, ShoppingCartIcon } from "../../components/ui/Icons";
 import { api } from "../../lib/api";
+import { db } from "../../lib/firebase";
 import { getDailyStockRemaining } from "../../lib/date";
 import { Swal } from "../../lib/swal";
 
@@ -11,7 +14,57 @@ function peso(value) {
   return `₱${Number(value || 0).toFixed(2)}`;
 }
 
+const POS_QUEUE_STATUSES = [
+  "NEW",
+  "PAYMENT_REVIEW",
+  "PREPARING",
+  "READY_FOR_PICKUP",
+  "COMPLETED",
+  "CANCELLED",
+  "PAYMENT_REJECTED",
+];
+
+const POS_QUEUE_ITEMS = [
+  { status: "NEW", label: "New Orders", icon: "🆕" },
+  { status: "ADVANCE", label: "Advance Orders", icon: <CalendarClockIcon className="h-5 w-5" /> },
+  { status: "BULK", label: "Bulk Orders", icon: <PackageStackIcon className="h-5 w-5" /> },
+  { status: "PAYMENT_REVIEW", label: "Payment Review", icon: "💳" },
+  { status: "PREPARING", label: "Preparing", icon: "🍞" },
+  { status: "READY_FOR_PICKUP", label: "Ready for Pickup", icon: "✅" },
+  { status: "COMPLETED", label: "Completed Order", icon: "✓" },
+  { status: "CANCELLED", label: "Cancelled Order", icon: "⊘" },
+  { status: "PAYMENT_REJECTED", label: "Payment Rejected", icon: "✕" },
+];
+
+function getPHTDateString() {
+  const pht = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  return `${pht.getUTCFullYear()}-${String(pht.getUTCMonth() + 1).padStart(2, "0")}-${String(pht.getUTCDate()).padStart(2, "0")}`;
+}
+
+function getQueueKey(order, today = getPHTDateString()) {
+  if (order.status === "NEW") return "NEW";
+  if (order.status === "PAYMENT_REVIEW") {
+    if (order.pickupDate > today) return "ADVANCE";
+    if ((Number(order.totalQty) || 0) > 20) return "BULK";
+  }
+  return order.status;
+}
+
+async function loadPosCatalog() {
+  const [productSnapshot, paymentModeSnapshot] = await Promise.all([
+    getDocs(query(collection(db, "products"), where("isAvailable", "==", true))),
+    getDocs(collection(db, "payment_modes")),
+  ]);
+  return {
+    products: productSnapshot.docs.map((doc) => ({ productId: doc.id, ...doc.data() })),
+    paymentModes: paymentModeSnapshot.docs
+      .map((doc) => ({ modeId: doc.id, ...doc.data() }))
+      .filter((mode) => mode.isActive),
+  };
+}
+
 export default function StaffWalkInPage() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [paymentModes, setPaymentModes] = useState([]);
   const [cart, setCart] = useState([]);
@@ -22,15 +75,33 @@ export default function StaffWalkInPage() {
   const [amountPaid, setAmountPaid] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [queueCounts, setQueueCounts] = useState({});
 
   useEffect(() => {
-    Promise.all([api.getProducts(), api.getPaymentModes()])
-      .then(([productData, modeData]) => {
-        setProducts(productData.filter((product) => product.isAvailable));
+    loadPosCatalog()
+      .then(({ products: productData, paymentModes: modeData }) => {
+        setProducts(productData);
         setPaymentModes(modeData);
       })
       .catch((error) => Swal.fire({ title: "Unable to Load POS", text: error.message }))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const ordersQuery = query(
+      collection(db, "orders"),
+      where("status", "in", POS_QUEUE_STATUSES),
+    );
+    return onSnapshot(ordersQuery, (snapshot) => {
+      const nextCounts = Object.fromEntries(POS_QUEUE_ITEMS.map((item) => [item.status, 0]));
+      snapshot.docs.forEach((doc) => {
+        const queueKey = getQueueKey(doc.data());
+        if (queueKey in nextCounts) nextCounts[queueKey] += 1;
+      });
+      setQueueCounts(nextCounts);
+    }, (error) => {
+      console.error("Manual POS queue listener error:", error);
+    });
   }, []);
 
   const total = useMemo(
@@ -116,8 +187,9 @@ export default function StaffWalkInPage() {
       setPaymentMethod("CASH");
       setPaymentProvider("");
       setAmountPaid("");
-      api.getProducts().then((productData) => {
-        setProducts(productData.filter((product) => product.isAvailable));
+      loadPosCatalog().then(({ products: productData, paymentModes: modeData }) => {
+        setProducts(productData);
+        setPaymentModes(modeData);
       }).catch(() => {});
     } catch (error) {
       await Swal.fire({ title: "Order Not Created", text: error.message });
@@ -127,7 +199,12 @@ export default function StaffWalkInPage() {
   }
 
   return (
-    <StaffLayout pageTitle="Walk-in Orders">
+    <StaffLayout
+      pageTitle="Walk-in Orders"
+      orderCount={Object.values(queueCounts).reduce((sum, count) => sum + count, 0)}
+      statusItems={POS_QUEUE_ITEMS.map((item) => ({ ...item, count: queueCounts[item.status] || 0 }))}
+      onStatusSelect={(status) => navigate(`/staff/orders?queue=${status}`)}
+    >
       <header className="mb-5">
         <p className="page-eyebrow">Manual POS</p>
         <h2 className="page-title">Create a walk-in order</h2>
