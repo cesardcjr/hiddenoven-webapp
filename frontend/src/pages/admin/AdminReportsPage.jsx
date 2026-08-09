@@ -270,7 +270,7 @@ export default function AdminReportsPage() {
                         {tx.customerName}
                       </td>
                       <td className="px-3 py-3" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
-                        {tx.contactNumber}
+                        {tx.contactNumber || "No contact number"}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
                         {formatDate(tx.orderDate)}

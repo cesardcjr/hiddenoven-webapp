@@ -203,7 +203,7 @@ export default function AdminOrdersPage() {
                     {o.customerName}
                   </td>
                   <td className="hidden sm:table-cell px-3 py-3" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
-                    {o.contactNumber}
+                    {o.contactNumber || "No contact number"}
                   </td>
                   <td className="px-3 py-3 font-bold" style={{ background: "#FFFFFF", color: "#462C7D" }}>
                     {money(o.total)}
@@ -270,7 +270,7 @@ export default function AdminOrdersPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[0.82rem]">
               <DetailTile label="Customer" value={selected.customerName} />
-              <DetailTile label="Contact" value={selected.contactNumber} />
+              <DetailTile label="Contact" value={selected.contactNumber || "No contact number"} />
               <DetailTile
                 label="Pickup"
                 value={`${selected.pickupDate || "—"}, ${selected.pickupLabel || "—"}`}

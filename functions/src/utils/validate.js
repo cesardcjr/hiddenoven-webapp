@@ -36,7 +36,10 @@ const VALID_TRANSITIONS = {
   CANCELLED: [],
 };
 
-function isValidTransition(from, to) {
+function isValidTransition(from, to, order = {}) {
+  if (from === "NEW" && to === "PREPARING") {
+    return order.orderType === "WALK_IN";
+  }
   return VALID_TRANSITIONS[from]?.includes(to) ?? false;
 }
 

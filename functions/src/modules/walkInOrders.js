@@ -25,7 +25,8 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
     if (!customerName || customerName.trim().length < 2) {
       return res.status(400).json({ error: "A valid customer name is required." });
     }
-    if (!isValidPHMobile(contactNumber)) {
+    const normalizedContactNumber = String(contactNumber || "").trim();
+    if (normalizedContactNumber && !isValidPHMobile(normalizedContactNumber)) {
       return res.status(400).json({ error: "A valid PH mobile number is required." });
     }
     const itemError = validateOrderItems(items);
@@ -117,10 +118,10 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
       transaction.set(orderRef, {
         orderNo,
         customerName: customerName.trim(),
-        contactNumber,
+        contactNumber: normalizedContactNumber || null,
         pickupDate: stockDate,
         pickupLabel: "Walk-in",
-        status: "PREPARING",
+        status: "NEW",
         orderType: "WALK_IN",
         subtotal: transactionTotal,
         total: transactionTotal,
@@ -131,8 +132,7 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
         paymentAmount: paidAmount,
         changeAmount,
         paidAt: FieldValue.serverTimestamp(),
-        paymentVerifiedAt: FieldValue.serverTimestamp(),
-        verifiedBy: req.user.uid,
+        paymentCapturedBy: req.user.uid,
         createdBy: req.user.uid,
         stockDate,
         createdAt: FieldValue.serverTimestamp(),
@@ -166,14 +166,14 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
       actorUid: req.user.uid,
       actorName: req.user.email || req.user.uid,
       action: "walk_in_order_create",
-      toStatus: "PREPARING",
+      toStatus: "NEW",
       details: { paymentMethod: normalizedMethod, total, totalQty },
     });
 
     res.status(201).json({
       orderId: orderRef.id,
       orderNo,
-      status: "PREPARING",
+      status: "NEW",
       orderType: "WALK_IN",
       total,
       changeAmount,

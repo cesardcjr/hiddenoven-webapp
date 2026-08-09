@@ -77,10 +77,6 @@ const COLUMNS = [
 ];
 
 const TRANSITIONS = {
-  NEW: [
-    { label: "Accept", to: "PAYMENT_REVIEW", style: "primary" },
-    { label: "Cancel", to: "CANCELLED", style: "ghost" },
-  ],
   PAYMENT_REVIEW: [
     { label: "Cancel", to: "CANCELLED", style: "ghost" },
   ],
@@ -96,6 +92,20 @@ const TRANSITIONS = {
     { label: "Complete Pickup", to: "COMPLETED", style: "success" },
   ],
 };
+
+function getTransitions(order) {
+  if (order.status === "NEW") {
+    return [
+      {
+        label: "Accept",
+        to: order.orderType === "WALK_IN" ? "PREPARING" : "PAYMENT_REVIEW",
+        style: "primary",
+      },
+      { label: "Cancel", to: "CANCELLED", style: "ghost" },
+    ];
+  }
+  return TRANSITIONS[order.status] || [];
+}
 
 function ageStr(createdAt) {
   if (!createdAt?.toDate) return "";
@@ -227,7 +237,7 @@ function OrderIdentifier({ children, tone = "purple" }) {
 }
 
 function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
-  const transitions = TRANSITIONS[order.status] || [];
+  const transitions = getTransitions(order);
   const isBulk = (Number(order.totalQty) || 0) > 20;
 
   return (
@@ -330,7 +340,7 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
           </span>
         </div>
         <span style={{ color: "#6F6B78", fontSize: "0.73rem" }}>
-          {order.contactNumber}
+          {order.contactNumber || "No contact number"}
         </span>
         <span style={{ color: "#6F6B78", fontSize: "0.73rem", fontWeight: 600 }}>
           Total quantity: {order.totalQty || 0}
@@ -641,7 +651,7 @@ function OrderTablePanel({ col, orders, onView }) {
                     {order.customerName}
                   </td>
                   <td className="px-4 py-3" style={{ color: "#6F6B78" }}>
-                    {order.contactNumber}
+                    {order.contactNumber || "No contact number"}
                   </td>
                   <td className="px-4 py-3" style={{ color: "#6F6B78" }}>
                     {order.pickupDate} · {order.pickupLabel || "—"}
@@ -717,7 +727,7 @@ function OrderDetailsModal({
 
           <div>
             <DetailRow label="Customer" value={order.customerName} />
-            <DetailRow label="Contact" value={order.contactNumber} />
+            <DetailRow label="Contact" value={order.contactNumber || "No contact number"} />
             <DetailRow label="Pickup Date" value={order.pickupDate} />
             <DetailRow label="Pickup Time" value={order.pickupLabel} />
             <DetailRow label="Order Placed By" value={formatDateTime(order.createdAt)} />
@@ -901,7 +911,10 @@ export default function StaffOrdersPage() {
     return unsub;
   }, []);
 
-  function confirmationText(toStatus, fromStatus) {
+  function confirmationText(toStatus, fromStatus, orderType) {
+    if (toStatus === "PREPARING" && fromStatus === "NEW" && orderType === "WALK_IN") {
+      return "Accept this walk-in order?";
+    }
     if (toStatus === "PREPARING") return "Are you sure Payment is Fully Verified?";
     if (toStatus === "PAYMENT_REJECTED") return "Are you sure to Reject this Payment?";
     if (toStatus === "READY_FOR_PICKUP")
@@ -913,7 +926,7 @@ export default function StaffOrdersPage() {
     return "Are you sure you want to update this order?";
   }
 
-  async function confirmAction(toStatus, fromStatus) {
+  async function confirmAction(toStatus, currentOrder) {
     if (toStatus === "CANCELLED") {
       const result = await Swal.fire({
         title: "Cancel Order",
@@ -934,7 +947,7 @@ export default function StaffOrdersPage() {
 
     const result = await Swal.fire({
       title: "Confirm Action",
-      text: confirmationText(toStatus, fromStatus),
+      text: confirmationText(toStatus, currentOrder?.status, currentOrder?.orderType),
       showCancelButton: true,
       confirmButtonText: "Yes, continue",
       cancelButtonText: "No",
@@ -944,7 +957,7 @@ export default function StaffOrdersPage() {
 
   async function handleAction(orderId, toStatus) {
     const currentOrder = orders.find((order) => order.orderId === orderId);
-    const confirmation = await confirmAction(toStatus, currentOrder?.status);
+    const confirmation = await confirmAction(toStatus, currentOrder);
     if (!confirmation.confirmed) return;
     setActing(true);
     try {

@@ -148,7 +148,8 @@ export default function StaffWalkInPage() {
       await Swal.fire({ title: "Customer Name Required", text: "Enter the walk-in customer's full name." });
       return;
     }
-    if (!/^(09|\+639)\d{9}$/.test(contactNumber)) {
+    const normalizedContactNumber = contactNumber.trim();
+    if (normalizedContactNumber && !/^(09|\+639)\d{9}$/.test(normalizedContactNumber)) {
       await Swal.fire({ title: "Valid Mobile Required", text: "Enter a valid Philippine mobile number." });
       return;
     }
@@ -169,7 +170,7 @@ export default function StaffWalkInPage() {
     try {
       const result = await api.createWalkInOrder({
         customerName: customerName.trim(),
-        contactNumber,
+        contactNumber: normalizedContactNumber,
         items: cart.map((item) => ({ productId: item.productId, qty: item.qty })),
         paymentMethod,
         paymentProvider,
@@ -178,7 +179,7 @@ export default function StaffWalkInPage() {
       await Swal.fire({
         title: "Walk-in Order Created",
         icon: "success",
-        text: `${result.orderNo} is now in Preparing. Change: ${peso(result.changeAmount)}`,
+        text: `${result.orderNo} is now waiting in New Orders. Change: ${peso(result.changeAmount)}`,
         confirmButtonText: "Okay",
       });
       setCart([]);
@@ -213,7 +214,7 @@ export default function StaffWalkInPage() {
 
       <section className="surface-card mb-6 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4" aria-label="Customer information">
         <TextInput label="Full Name" value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Juan Dela Cruz" />
-        <TextInput label="Mobile Number" value={contactNumber} onChange={(event) => setContactNumber(event.target.value)} placeholder="09XXXXXXXXX" />
+        <TextInput label="Mobile Number (Optional)" value={contactNumber} onChange={(event) => setContactNumber(event.target.value)} placeholder="09XXXXXXXXX" />
         <div>
           <span className="label">Payment Method</span>
           <div className="flex min-h-12 gap-2">

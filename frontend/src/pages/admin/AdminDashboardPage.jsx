@@ -94,111 +94,104 @@ function dateFromValue(value) {
   return value ? new Date(value) : null;
 }
 
-function buildTrend(transactions, filter) {
-  const now = new Date();
-  if (filter === "daily") {
-    const buckets = Array.from({ length: 24 }, (_, hour) => ({
-      label: `${String(hour).padStart(2, "0")}:00`,
-      qty: 0,
-    }));
-    transactions.forEach((tx) => {
-      const date = dateFromValue(tx.orderDate);
-      if (!date) return;
-      buckets[date.getHours()].qty += tx.totalQty || 0;
-    });
-    return buckets;
-  }
-  if (filter === "monthly") {
-    const months = Array.from({ length: now.getMonth() + 1 }, (_, month) => ({
-      label: new Date(now.getFullYear(), month, 1).toLocaleString("en-PH", {
-        month: "short",
-      }),
-      qty: 0,
-    })).slice(-12);
-    transactions.forEach((tx) => {
-      const date = dateFromValue(tx.orderDate);
-      if (!date || date.getFullYear() !== now.getFullYear()) return;
-      if (months[date.getMonth()]) months[date.getMonth()].qty += tx.totalQty || 0;
-    });
-    return months;
-  }
-
-  const byDay = {};
-  transactions.forEach((tx) => {
-    const date = dateFromValue(tx.orderDate);
-    if (!date) return;
-    const key = date.toISOString().slice(0, 10);
-    byDay[key] = (byDay[key] || 0) + (tx.totalQty || 0);
-  });
-  return Object.entries(byDay)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, qty]) => ({
-      label: new Date(`${key}T00:00:00`).toLocaleDateString("en-PH", {
-        month: "short",
-        day: "numeric",
-      }),
-      qty,
-    }));
+function buildTrend(transactions) {
+  return transactions
+    .map((transaction) => ({
+      orderNo: transaction.orderNo || "Order",
+      orderDate: dateFromValue(transaction.orderDate),
+      qty: Number(transaction.totalQty) || 0,
+    }))
+    .filter((transaction) => transaction.orderDate)
+    .sort((a, b) => a.orderDate - b.orderDate);
 }
 
 function TrendChart({ data }) {
-  const max = Math.max(1, ...data.map((d) => d.qty));
-  const points = data.map((d, idx) => {
-    const x = data.length <= 1 ? 50 : (idx / (data.length - 1)) * 100;
-    const y = 94 - (d.qty / max) * 82;
-    return `${x},${y}`;
+  if (!data.length) {
+    return <p className="py-12 text-center text-sm text-[#6F6B78]">No completed orders found for this period.</p>;
+  }
+
+  const width = Math.max(720, data.length * 72);
+  const height = 280;
+  const margin = { top: 18, right: 24, bottom: 54, left: 52 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const maxQty = Math.max(1, ...data.map((point) => point.qty));
+  const tickStep = Math.max(1, Math.ceil(maxQty / 4));
+  const yMax = tickStep * 4;
+  const yTicks = Array.from({ length: 5 }, (_, index) => index * tickStep);
+  const pointPosition = (point, index) => ({
+    x: margin.left + (data.length <= 1 ? plotWidth / 2 : (index / (data.length - 1)) * plotWidth),
+    y: margin.top + plotHeight - (point.qty / yMax) * plotHeight,
   });
+  const positions = data.map(pointPosition);
+  const labelEvery = Math.max(1, Math.ceil(data.length / 10));
 
   return (
-    <div>
-      <div className="h-64">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
-          <defs>
-            <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#462C7D" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#462C7D" stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
+    <div className="overflow-x-auto pb-2">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-[280px]"
+        style={{ minWidth: `${width}px`, width: "100%" }}
+        role="img"
+        aria-label="Line chart showing item quantity for each completed order"
+      >
+        {yTicks.map((tick) => {
+          const y = margin.top + plotHeight - (tick / yMax) * plotHeight;
+          return (
+            <g key={tick}>
+              <line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#E8E2F2" strokeWidth="1" />
+              <text x={margin.left - 12} y={y + 4} textAnchor="end" fontSize="11" fill="#6F6B78">{tick}</text>
+            </g>
+          );
+        })}
+        <line x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} stroke="#CFC4E2" />
+        <line x1={margin.left} x2={width - margin.right} y1={margin.top + plotHeight} y2={margin.top + plotHeight} stroke="#CFC4E2" />
+        <text
+          x="15"
+          y={margin.top + plotHeight / 2}
+          transform={`rotate(-90 15 ${margin.top + plotHeight / 2})`}
+          textAnchor="middle"
+          fontSize="11"
+          fontWeight="700"
+          fill="#6F6B78"
+        >
+          Item quantity
+        </text>
+        {data.length > 1 && (
           <polyline
-            points={`0,96 ${points.join(" ")} 100,96`}
-            fill="url(#trendFill)"
-            stroke="none"
-          />
-          <polyline
-            points={points.join(" ")}
+            points={positions.map(({ x, y }) => `${x},${y}`).join(" ")}
             fill="none"
-            stroke="#462C7D"
-            strokeWidth="1.8"
-            vectorEffect="non-scaling-stroke"
+            stroke="#A78BFA"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          {data.map((d, idx) => {
-            const x = data.length <= 1 ? 50 : (idx / (data.length - 1)) * 100;
-            const y = 94 - (d.qty / max) * 82;
-            return (
+        )}
+        {data.map((point, index) => {
+          const { x, y } = positions[index];
+          const showLabel = index % labelEvery === 0 || index === data.length - 1;
+          return (
+            <g key={`${point.orderNo}-${index}`}>
               <circle
-                key={`${d.label}-${idx}`}
                 cx={x}
                 cy={y}
-                r="1.6"
-                fill="#462C7D"
-                vectorEffect="non-scaling-stroke"
-              />
-            );
-          })}
-        </svg>
-      </div>
-      <div className="grid gap-1 mt-3" style={{ gridTemplateColumns: `repeat(${Math.min(data.length || 1, 12)}, minmax(0, 1fr))` }}>
-        {data
-          .filter((_, idx) => data.length <= 12 || idx % Math.ceil(data.length / 12) === 0)
-          .map((d) => (
-            <div key={d.label} className="text-center text-[0.65rem]" style={{ color: "#6F6B78" }}>
-              <div className="font-bold" style={{ color: "#462C7D" }}>{d.qty}</div>
-              {d.label}
-            </div>
-          ))}
-      </div>
+                r="5"
+                fill="#A78BFA"
+                stroke="#FFFFFF"
+                strokeWidth="2"
+              >
+                <title>{`${point.orderNo}: ${point.qty} item${point.qty === 1 ? "" : "s"}`}</title>
+              </circle>
+              <text x={x} y={y - 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="#7452A8">{point.qty}</text>
+              {showLabel && (
+                <text x={x} y={height - 24} textAnchor="middle" fontSize="10" fill="#6F6B78">
+                  {point.orderNo.replace(/^HO-\d{8}-/, "#")}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
@@ -252,8 +245,8 @@ export default function AdminDashboardPage() {
   }, [filter, customFrom, customTo]);
 
   const trend = useMemo(
-    () => buildTrend(report?.transactions || [], filter),
-    [report, filter],
+    () => buildTrend(report?.transactions || []),
+    [report],
   );
 
   if (loading)
@@ -325,10 +318,10 @@ export default function AdminDashboardPage() {
               className="font-display font-bold text-[1rem]"
               style={{ color: "#462C7D" }}
             >
-              Order Quantity Trend
+              Order Quantity by Order
             </div>
             <p className="text-[0.74rem]" style={{ color: "#6F6B78" }}>
-              Total ordered quantity based on completed transactions
+              Each point shows the total item quantity for one completed order
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">

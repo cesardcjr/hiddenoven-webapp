@@ -583,7 +583,7 @@ router.patch(
         fromStatus = order.status;
         orderNo = order.orderNo || orderId;
 
-        if (!isValidTransition(fromStatus, toStatus)) {
+        if (!isValidTransition(fromStatus, toStatus, order)) {
           const error = new Error(
             `Cannot transition order from '${fromStatus}' to '${toStatus}'.`,
           );
@@ -595,7 +595,15 @@ router.patch(
           status: toStatus,
           updatedAt: FieldValue.serverTimestamp(),
         };
-        if (fromStatus === "PAYMENT_REVIEW" && toStatus === "PREPARING") {
+        if (fromStatus === "NEW" && toStatus !== "CANCELLED") {
+          updateData.acceptedAt = FieldValue.serverTimestamp();
+          updateData.acceptedBy = actorUid;
+        }
+        if (
+          toStatus === "PREPARING" &&
+          (fromStatus === "PAYMENT_REVIEW" ||
+            (fromStatus === "NEW" && order.orderType === "WALK_IN"))
+        ) {
           updateData.verifiedBy = actorUid;
           updateData.paymentVerifiedAt = FieldValue.serverTimestamp();
         }
