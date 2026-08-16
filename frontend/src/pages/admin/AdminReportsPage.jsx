@@ -25,6 +25,17 @@ function escapeCsv(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
+function paymentSummary(transaction) {
+  return [
+    transaction.paymentMethod,
+    transaction.paymentProvider,
+    transaction.paymentReference && transaction.paymentReference !== "—" ? `Ref: ${transaction.paymentReference}` : null,
+    `Paid: ${formatMoney(transaction.paymentAmount)}`,
+    transaction.paymentStatus,
+    transaction.paidAt ? formatDate(transaction.paidAt) : null,
+  ].filter(Boolean).join(" · ");
+}
+
 export default function AdminReportsPage() {
   const today = new Date().toISOString().slice(0, 10);
   const [from, setFrom] = useState(today);
@@ -56,6 +67,9 @@ export default function AdminReportsPage() {
       "Customer Name",
       "CP Num",
       "Order Date",
+      "Payment Transaction",
+      "Ordered Items",
+      "Handled By",
       "Total Amount",
     ];
     const rows = report.transactions.map((tx) => [
@@ -63,6 +77,9 @@ export default function AdminReportsPage() {
       tx.customerName,
       tx.contactNumber,
       formatDate(tx.orderDate),
+      paymentSummary(tx),
+      tx.itemsSummary,
+      tx.handledByName,
       Number(tx.total || 0).toFixed(2),
     ]);
     const csv = [headers, ...rows]
@@ -226,6 +243,9 @@ export default function AdminReportsPage() {
                     "Customer Name",
                     "CP Num",
                     "Order Date",
+                    "Payment Transaction",
+                    "Ordered Items",
+                    "Handled By",
                     "Total Amount",
                   ].map((h) => (
                     <th
@@ -250,7 +270,7 @@ export default function AdminReportsPage() {
                 {(report.transactions || []).length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={8}
                       className="text-center py-10"
                       style={{ background: "#FFFFFF", color: "#6F6B78" }}
                     >
@@ -274,6 +294,15 @@ export default function AdminReportsPage() {
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
                         {formatDate(tx.orderDate)}
+                      </td>
+                      <td className="min-w-[220px] px-3 py-3 text-[0.75rem] leading-5" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
+                        {paymentSummary(tx)}
+                      </td>
+                      <td className="min-w-[220px] px-3 py-3 text-[0.75rem] leading-5" style={{ background: "#FFFFFF", color: "#17151D" }}>
+                        {tx.itemsSummary || "No item details"}
+                      </td>
+                      <td className="px-3 py-3 font-semibold whitespace-nowrap" style={{ background: "#FFFFFF", color: "#17151D" }}>
+                        {tx.handledByName || "—"}
                       </td>
                       <td className="px-3 py-3 font-bold" style={{ background: "#FFFFFF", color: "#462C7D" }}>
                         {formatMoney(tx.total)}

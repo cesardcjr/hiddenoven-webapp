@@ -56,7 +56,13 @@ async function loadPosCatalog() {
     getDocs(collection(db, "payment_modes")),
   ]);
   return {
-    products: productSnapshot.docs.map((doc) => ({ productId: doc.id, ...doc.data() })),
+    products: productSnapshot.docs
+      .map((doc) => ({ productId: doc.id, ...doc.data() }))
+      .sort((a, b) => {
+        const aOrder = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : Number.MAX_SAFE_INTEGER;
+        const bOrder = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : Number.MAX_SAFE_INTEGER;
+        return aOrder - bOrder || String(a.name || "").localeCompare(String(b.name || ""));
+      }),
     paymentModes: paymentModeSnapshot.docs
       .map((doc) => ({ modeId: doc.id, ...doc.data() }))
       .filter((mode) => mode.isActive),

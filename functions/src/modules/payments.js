@@ -246,6 +246,7 @@ router.patch(
       const { id: proofId } = req.params;
       const { action } = req.body; // "verified" or "rejected"
       const actorUid = req.user.uid;
+      const actorName = req.user.email || actorUid;
 
       if (!["verified", "rejected"].includes(action)) {
         return res
@@ -255,6 +256,7 @@ router.patch(
 
       const proofRef = db.collection("payment_proofs").doc(proofId);
       let orderId;
+      let orderNo;
       let statusChange = null;
 
       await db.runTransaction(async (transaction) => {
@@ -275,6 +277,7 @@ router.patch(
         orderId = proof.orderId;
         const orderRef = db.collection("orders").doc(orderId);
         const orderSnap = await transaction.get(orderRef);
+        orderNo = orderSnap.exists ? orderSnap.data().orderNo || orderId : orderId;
 
         transaction.update(proofRef, {
           verifiedStatus: action,
@@ -312,14 +315,16 @@ router.patch(
       if (statusChange) {
         await writeAuditLog({
           orderId,
+          orderNo,
           actorUid,
+          actorName,
           action: "status_change",
           fromStatus: statusChange.fromStatus,
           toStatus: statusChange.toStatus,
         });
       }
 
-      await writeAuditLog({ orderId, actorUid, action: `payment_${action}` });
+      await writeAuditLog({ orderId, orderNo, actorUid, actorName, action: `payment_${action}` });
       res.json({ success: true });
     } catch (err) {
       next(err);

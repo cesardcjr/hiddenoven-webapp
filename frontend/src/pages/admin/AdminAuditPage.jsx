@@ -1,43 +1,76 @@
-import { useEffect, useState } from "react";
-import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
+import { collection, getDocs, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { AdminLayout } from "../../components/layout/AdminLayout";
 import { Spinner } from "../../components/ui/Spinner";
 import { Modal } from "../../components/ui/Modal";
 
 const ACTION_LABELS = {
+  order_create: "Order Created",
+  walk_in_order_create: "Walk-in Order Created",
   status_change: "Status Change",
   product_create: "Product Created",
   product_update: "Product Updated",
   product_delete: "Product Deleted",
+  product_reorder: "Products Reordered",
   staff_create: "Staff Created",
   staff_update: "Staff Updated",
   staff_deactivate: "Staff Deactivated",
   payment_verified: "Payment Verified",
   payment_rejected: "Payment Rejected",
+  payment_approved: "Payment Approved",
 };
 
 const AUDIT_PER_PAGE = 10;
 
 function formatDateTime(value) {
   if (!value) return "—";
-  const date = value.toDate ? value.toDate() : new Date(value);
+  const date = value.toDate ? value.toDate() : new Date((value._seconds ?? value.seconds ?? 0) * 1000 || value);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString("en-PH");
 }
 
+function timestampMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  return Number(value._seconds ?? value.seconds ?? 0) * 1000;
+}
+
+function actionLabel(action) {
+  return ACTION_LABELS[action] || String(action || "System action").replaceAll("_", " ");
+}
+
 function actionDetails(log) {
   if (log.action === "status_change") {
-    if (log.toStatus === "CANCELLED") {
-      return `Cancelled order. Reason: ${log.details?.cancellationReason || "—"}`;
-    }
-    if (log.toStatus === "PREPARING") return "Payment was verified and order moved to preparation.";
+    if (log.toStatus === "CANCELLED") return `Cancelled order. Reason: ${log.details?.cancellationReason || "—"}`;
+    if (log.toStatus === "PREPARING") return "Payment was verified and the order moved to preparation.";
     if (log.toStatus === "PAYMENT_REJECTED") return "Payment was rejected.";
     if (log.toStatus === "READY_FOR_PICKUP") return "Order was marked ready for pickup.";
-    if (log.toStatus === "COMPLETED") return "Order was marked picked up/completed.";
+    if (log.toStatus === "COMPLETED") return "Order was marked picked up and completed.";
     return `Order status changed from ${log.fromStatus || "—"} to ${log.toStatus || "—"}.`;
   }
-  return ACTION_LABELS[log.action] || log.action || "System action";
+  if (log.action === "walk_in_order_create") return "A walk-in order was recorded by staff.";
+  if (log.action?.startsWith("payment_")) return actionLabel(log.action);
+  return actionLabel(log.action);
+}
+
+function groupLogs(logs) {
+  const orderNoToId = {};
+  logs.forEach((log) => {
+    if (log.orderNo && log.orderId) orderNoToId[log.orderNo] = log.orderId;
+  });
+  const groups = new Map();
+  logs.forEach((log) => {
+    const isOrderRelated = Boolean(log.orderId || log.orderNo);
+    const orderKey = log.orderId || orderNoToId[log.orderNo] || log.orderNo;
+    const key = isOrderRelated ? `order:${orderKey}` : `log:${log.logId}`;
+    if (!groups.has(key)) groups.set(key, { key, isOrderRelated, orderId: log.orderId || null, orderNo: log.orderNo || null, entries: [] });
+    const group = groups.get(key);
+    group.entries.push(log);
+    if (!group.orderId && log.orderId) group.orderId = log.orderId;
+    if (!group.orderNo && log.orderNo) group.orderNo = log.orderNo;
+  });
+  return [...groups.values()].map((group) => ({ ...group, latest: group.entries[0] }));
 }
 
 export default function AdminAuditPage() {
@@ -46,224 +79,85 @@ export default function AdminAuditPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, "audit_log"), orderBy("timestamp", "desc"), limit(200));
-    return onSnapshot(q, (snap) => {
-      setLogs(snap.docs.map((d) => ({ logId: d.id, ...d.data() })));
+    const auditQuery = query(collection(db, "audit_log"), orderBy("timestamp", "desc"), limit(300));
+    return onSnapshot(auditQuery, (snapshot) => {
+      setLogs(snapshot.docs.map((doc) => ({ logId: doc.id, ...doc.data() })));
       setLoading(false);
     });
   }, []);
 
-  const filtered = logs.filter((l) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (l.orderNo || l.orderId || "").toLowerCase().includes(q) ||
-      (l.action || "").toLowerCase().includes(q) ||
-      (ACTION_LABELS[l.action] || "").toLowerCase().includes(q) ||
-      (l.actorName || l.actorUid || "").toLowerCase().includes(q)
-    );
+  const groups = useMemo(() => groupLogs(logs), [logs]);
+  const filtered = groups.filter((group) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return [group.orderNo, group.orderId, ...group.entries.flatMap((entry) => [entry.action, actionLabel(entry.action), entry.actorName, entry.actorUid])]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(term));
   });
-
   const totalPages = Math.max(1, Math.ceil(filtered.length / AUDIT_PER_PAGE));
   const safePage = Math.min(page, totalPages);
-  const slice = filtered.slice(
-    (safePage - 1) * AUDIT_PER_PAGE,
-    safePage * AUDIT_PER_PAGE,
-  );
+  const visibleGroups = filtered.slice((safePage - 1) * AUDIT_PER_PAGE, safePage * AUDIT_PER_PAGE);
 
-  const pgBtnStyle = (active) => ({
-    padding: "5px 10px",
-    borderRadius: "6px",
-    fontSize: "0.74rem",
-    fontWeight: 600,
-    cursor: active ? "default" : "pointer",
-    fontFamily: "Google Sans,Arial,sans-serif",
-    transition: "all 0.2s",
-    background: active ? "#462C7D" : "transparent",
-    color: active ? "#FFFFFF" : "#6F6B78",
-    border: active
-      ? "1.5px solid #462C7D"
-      : "1.5px solid rgba(70,44,125,0.18)",
-  });
-
-  const inputStyle = {
-    background: "#FFFFFF",
-    border: "1.5px solid rgba(70,44,125,0.25)",
-    borderRadius: "8px",
-    color: "#17151D",
-    fontSize: "0.84rem",
-    fontFamily: "Google Sans,Arial,sans-serif",
-    outline: "none",
-    padding: "8px 12px 8px 34px",
-    width: "100%",
-    transition: "border 0.2s",
-  };
+  async function openGroup(group) {
+    setSelected(group);
+    if (!group.isOrderRelated) return;
+    setHistoryLoading(true);
+    try {
+      const lookups = [];
+      if (group.orderId) lookups.push(getDocs(query(collection(db, "audit_log"), where("orderId", "==", group.orderId))));
+      if (group.orderNo) lookups.push(getDocs(query(collection(db, "audit_log"), where("orderNo", "==", group.orderNo))));
+      const snapshots = await Promise.all(lookups);
+      const allEntries = new Map(group.entries.map((entry) => [entry.logId, entry]));
+      snapshots.forEach((snapshot) => snapshot.docs.forEach((doc) => allEntries.set(doc.id, { logId: doc.id, ...doc.data() })));
+      setSelected({ ...group, entries: [...allEntries.values()].sort((a, b) => timestampMillis(b.timestamp) - timestampMillis(a.timestamp)) });
+    } catch (error) {
+      console.error("Unable to load the complete order audit history:", error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
 
   return (
     <AdminLayout>
-      <div className="flex items-start justify-between mb-5 flex-wrap gap-2">
-        <div>
-          <h2
-            className="font-display font-bold text-[1.2rem]"
-            style={{ color: "#462C7D" }}
-          >
-            Audit Logs
-          </h2>
-          <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
-            Staff actions and transaction details
-          </p>
-        </div>
-      </div>
+      <div className="mb-5"><h2 className="font-display text-[1.2rem] font-bold text-[#462C7D]">Audit Logs</h2><p className="mt-0.5 text-[0.78rem] text-[#6F6B78]">Order activity is grouped into one history per order number.</p></div>
+      <label className="relative mb-4 block"><span className="sr-only">Search audit logs</span><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#AAA6B0]">⌕</span><input className="input pl-9" placeholder="Search by order no., action, or staff name…" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} /></label>
 
-      <div className="relative mb-4">
-        <span
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[0.85rem]"
-          style={{ color: "#AAA6B0" }}
-        >
-          🔍
-        </span>
-        <input
-          style={inputStyle}
-          placeholder="Search by order no., action, or staff name…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-        />
-      </div>
-
-      {loading ? (
-        <Spinner className="py-20" />
-      ) : (
-        <div
-          className="overflow-x-auto rounded-xl"
-          style={{ boxShadow: "0 2px 12px rgba(23,21,29,0.09)" }}
-        >
-          <table className="w-full border-collapse" style={{ fontSize: "0.8rem", minWidth: "620px" }}>
-            <thead>
-              <tr>
-                {["Date & Time", "Action", "Order No.", "Actor", ""].map((h) => (
-                  <th
-                    key={h || "view"}
-                    className="text-left px-3 py-2.5 whitespace-nowrap"
-                    style={{
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      color: "#6F6B78",
-                      borderBottom: "2px solid rgba(70,44,125,0.18)",
-                      background: "#FFFFFF",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+      {loading ? <Spinner className="py-20" /> : (
+        <div className="overflow-x-auto rounded-xl shadow-card">
+          <table className="w-full min-w-[680px] border-collapse text-[0.8rem]">
+            <thead><tr>{["Latest Activity", "Order No.", "Activity", "Latest Actor", ""].map((heading) => <th key={heading || "view"} className="border-b-2 border-[rgba(70,44,125,0.18)] bg-white px-3 py-2.5 text-left text-[0.64rem] font-bold uppercase tracking-[0.5px] text-[#6F6B78]">{heading}</th>)}</tr></thead>
             <tbody>
-              {slice.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center py-10" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
-                    No matching log entries.
-                  </td>
+              {!visibleGroups.length ? <tr><td colSpan={5} className="bg-white py-10 text-center text-[#6F6B78]">No matching audit entries.</td></tr> : visibleGroups.map((group) => (
+                <tr key={group.key} className="border-b border-[rgba(70,44,125,0.09)]">
+                  <td className="whitespace-nowrap bg-white px-3 py-3 text-[0.73rem] text-[#6F6B78]">{formatDateTime(group.latest.timestamp)}</td>
+                  <td className="bg-white px-3 py-3 font-bold text-[#462C7D]">{group.orderNo || group.orderId || "—"}</td>
+                  <td className="bg-white px-3 py-3 font-semibold text-[#17151D]">{group.isOrderRelated ? `${group.entries.length} order action${group.entries.length === 1 ? "" : "s"}` : actionLabel(group.latest.action)}</td>
+                  <td className="bg-white px-3 py-3 text-[0.74rem] text-[#6F6B78]">{group.latest.actorName || group.latest.actorUid || "—"}</td>
+                  <td className="bg-white px-3 py-3 text-right"><button type="button" onClick={() => openGroup(group)} className="text-[0.75rem] font-semibold text-[#462C7D]">View</button></td>
                 </tr>
-              ) : (
-                slice.map((log) => (
-                  <tr key={log.logId} style={{ borderBottom: "1px solid rgba(70,44,125,0.09)" }}>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-[0.73rem]" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
-                      {formatDateTime(log.timestamp)}
-                    </td>
-                    <td className="px-3 py-2.5 font-semibold" style={{ background: "#FFFFFF", color: "#17151D" }}>
-                      {ACTION_LABELS[log.action] || log.action}
-                    </td>
-                    <td className="px-3 py-2.5 font-bold" style={{ background: "#FFFFFF", color: "#462C7D" }}>
-                      {log.orderNo || log.orderId || "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-[0.74rem]" style={{ background: "#FFFFFF", color: "#6F6B78" }}>
-                      {log.actorName || log.actorUid || "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right" style={{ background: "#FFFFFF" }}>
-                      <button
-                        type="button"
-                        onClick={() => setSelected(log)}
-                        className="text-[0.75rem] font-semibold"
-                        style={{ background: "none", border: "none", color: "#462C7D", cursor: "pointer" }}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
-
-          <div
-            className="flex items-center justify-between px-4 py-3 flex-wrap gap-3"
-            style={{
-              borderTop: "1px solid rgba(70,44,125,0.12)",
-              background: "#FFFFFF",
-            }}
-          >
-            <span className="text-[0.76rem]" style={{ color: "#6F6B78" }}>
-              Showing {Math.min((safePage - 1) * AUDIT_PER_PAGE + 1, filtered.length)}–
-              {Math.min(safePage * AUDIT_PER_PAGE, filtered.length)} of{" "}
-              {filtered.length} entries
-            </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                disabled={safePage <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                style={{ ...pgBtnStyle(false), opacity: safePage <= 1 ? 0.35 : 1 }}
-              >
-                ← Prev
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                <button key={n} onClick={() => setPage(n)} style={pgBtnStyle(n === safePage)}>
-                  {n}
-                </button>
-              ))}
-              <button
-                disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                style={{ ...pgBtnStyle(false), opacity: safePage >= totalPages ? 0.35 : 1 }}
-              >
-                Next →
-              </button>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E8E6ED] bg-white px-4 py-3">
+            <span className="text-[0.76rem] text-[#6F6B78]">Showing {filtered.length ? (safePage - 1) * AUDIT_PER_PAGE + 1 : 0}–{Math.min(safePage * AUDIT_PER_PAGE, filtered.length)} of {filtered.length} grouped entries</span>
+            <div className="flex items-center gap-2"><button className="btn-secondary min-h-8 px-3" disabled={safePage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>←</button><span className="text-xs font-bold text-[#462C7D]">{safePage} / {totalPages}</span><button className="btn-secondary min-h-8 px-3" disabled={safePage === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>→</button></div>
           </div>
         </div>
       )}
 
-      <Modal
-        open={Boolean(selected)}
-        onClose={() => setSelected(null)}
-        title="Audit Details"
-      >
-        {selected && (
-          <div className="space-y-3 text-[0.82rem]">
-            {[
-              ["Date & Time", formatDateTime(selected.timestamp)],
-              ["Order Number", selected.orderNo || selected.orderId],
-              ["Actor", selected.actorName || selected.actorUid],
-              ["Action", ACTION_LABELS[selected.action] || selected.action],
-              ["Actual Action Done", actionDetails(selected)],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <p className="text-[0.65rem] font-bold uppercase tracking-[0.5px]" style={{ color: "#6F6B78" }}>
-                  {label}
-                </p>
-                <p className="font-semibold" style={{ color: "#17151D" }}>
-                  {value || "—"}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
+      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title={selected?.isOrderRelated ? `Order ${selected.orderNo || selected.orderId} Activity` : "Audit Details"}>
+        {historyLoading ? <Spinner className="py-10" /> : selected && <div className="space-y-3">
+          {selected.entries.map((entry, index) => (
+            <article key={entry.logId} className="relative rounded-xl border border-[#E8E6ED] bg-[#F7F7FA] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-sm font-bold text-[#462C7D]">{actionLabel(entry.action)}</p><p className="mt-1 text-xs leading-5 text-[#6F6B78]">{actionDetails(entry)}</p></div><span className="text-[0.68rem] text-[#817C89]">{formatDateTime(entry.timestamp)}</span></div>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.72rem] text-[#6F6B78]"><span><strong className="text-[#17151D]">Actor:</strong> {entry.actorName || entry.actorUid || "—"}</span>{entry.fromStatus && <span><strong className="text-[#17151D]">From:</strong> {entry.fromStatus}</span>}{entry.toStatus && <span><strong className="text-[#17151D]">To:</strong> {entry.toStatus}</span>}</div>
+              {selected.entries.length > 1 && <span className="absolute -left-2 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-[#462C7D] text-[0.62rem] font-bold text-white">{selected.entries.length - index}</span>}
+            </article>
+          ))}
+        </div>}
       </Modal>
     </AdminLayout>
   );

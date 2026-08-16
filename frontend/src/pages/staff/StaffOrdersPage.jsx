@@ -239,6 +239,13 @@ function OrderIdentifier({ children, tone = "purple" }) {
 function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
   const transitions = getTransitions(order);
   const isBulk = (Number(order.totalQty) || 0) > 20;
+  const cancelIndex = transitions.findIndex((action) => action.to === "CANCELLED");
+  const cardActions = [...transitions];
+  cardActions.splice(cancelIndex >= 0 ? cancelIndex : cardActions.length, 0, {
+    label: "View Details",
+    style: "outline",
+    viewOnly: true,
+  });
 
   return (
     <div
@@ -251,6 +258,7 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
         display: "flex",
         flexDirection: "column",
         gap: "10px",
+        height: "100%",
         boxShadow: "0 2px 10px rgba(23,21,29,0.08)",
       }}
     >
@@ -293,18 +301,9 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
             {order.orderNo}
           </span>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
-          <span style={{ color: "#AAA6B0", fontSize: "0.68rem", whiteSpace: "nowrap" }}>
-            {ageStr(order.createdAt)}
-          </span>
-          <button
-            type="button"
-            onClick={() => onView(order)}
-            style={{ border: 0, background: "transparent", color: "#462C7D", cursor: "pointer", fontFamily: "inherit", fontSize: "0.68rem", fontWeight: 700, padding: 0 }}
-          >
-            View details
-          </button>
-        </div>
+        <span style={{ color: "#AAA6B0", fontSize: "0.68rem", whiteSpace: "nowrap" }}>
+          {ageStr(order.createdAt)}
+        </span>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
@@ -355,22 +354,23 @@ function OrderCard({ order, rank, colColor, acting, onAction, onView }) {
 
       <div
         style={{
-          display: transitions.length > 0 ? "grid" : "none",
-          gridTemplateColumns: `repeat(${Math.min(transitions.length, 2)}, minmax(0, 1fr))`,
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           gap: "7px",
           paddingTop: "8px",
           borderTop: "1px solid rgba(70,44,125,0.1)",
+          marginTop: "auto",
         }}
       >
-        {transitions.map((action) => (
+        {cardActions.map((action) => (
           <button
-            key={action.to}
+            key={action.viewOnly ? "view" : action.to}
             type="button"
             style={{ ...btnStyle(action.style), width: "100%", minHeight: "34px" }}
-            disabled={acting}
-            onClick={() => onAction(order.orderId, action.to)}
+            disabled={acting && !action.viewOnly}
+            onClick={() => action.viewOnly ? onView(order) : onAction(order.orderId, action.to)}
           >
-            {acting ? "…" : action.label}
+            {acting && !action.viewOnly ? "…" : action.label}
           </button>
         ))}
       </div>
@@ -416,7 +416,7 @@ function ColumnPanel({ col, orders, acting, onAction, onView }) {
         style={{
           padding: "14px",
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
           gap: "12px",
           alignContent: "start",
           flex: 1,
@@ -524,7 +524,7 @@ function AdvanceOrdersPanel({
         style={{
           padding: "14px",
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
           gap: "12px",
           alignContent: "start",
           flex: 1,
@@ -1059,8 +1059,6 @@ export default function StaffOrdersPage() {
     count:
       col.status === "ADVANCE" ? allAdvanceOrders.length : grouped[col.status]?.length || 0,
   }));
-  const isTableView = ["COMPLETED", "CANCELLED"].includes(activeCol.status);
-
   const inputStyle = {
     background: "#FFFFFF",
     border: "1.5px solid rgba(70,44,125,0.25)",
@@ -1084,8 +1082,9 @@ export default function StaffOrdersPage() {
       <ToastContainer />
 
       <style>{`
-        @media (max-width: 1023px) { .staff-card-grid { grid-template-columns: repeat(3, 1fr) !important; } }
-        @media (max-width: 639px)  { .staff-card-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 1279px) { .staff-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+        @media (max-width: 899px) { .staff-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+        @media (max-width: 559px) { .staff-card-grid { grid-template-columns: minmax(0, 1fr) !important; } }
       `}</style>
 
       <div
@@ -1162,8 +1161,6 @@ export default function StaffOrdersPage() {
           onAction={handleAction}
           onView={openDetails}
         />
-      ) : isTableView ? (
-        <OrderTablePanel col={activeCol} orders={activeOrders} onView={openDetails} />
       ) : (
         <ColumnPanel
           col={activeCol}

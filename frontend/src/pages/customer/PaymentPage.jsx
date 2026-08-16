@@ -58,6 +58,16 @@ export default function PaymentPage() {
     if (!paymentAmount || Number.isNaN(amount) || amount <= 0) { setError("Payment amount is required."); return; }
     if (checkoutDraft.total && amount < Number(checkoutDraft.total)) { setError("Payment amount must be at least the order total."); return; }
     if (!paymentProvider.trim()) { setError("Please select the bank or service provider used."); return; }
+    setError("");
+    const confirmation = await Swal.fire({
+      title: "Submit Payment?",
+      text: "Please confirm that your payment details and uploaded receipt are correct.",
+      showCancelButton: true,
+      confirmButtonText: "Submit Payment",
+      cancelButtonText: "Review Details",
+      confirmButtonColor: "#462C7D",
+    });
+    if (!confirmation.isConfirmed) return;
     setSubmitting(true);
     try {
       const result = await api.placeOrderWithPayment({ ...checkoutDraft, imageBase64: await readFileAsBase64(file), mimeType: file.type, refNumber: refNumber.trim(), paymentAmount: amount, paymentProvider: paymentProvider.trim() });

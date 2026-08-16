@@ -84,6 +84,8 @@ export const api = {
   createProduct: (payload) => request("POST", "/api/products", payload),
   updateProduct: (id, payload) =>
     request("PUT", `/api/products/${id}`, payload),
+  reorderProducts: (productIds) =>
+    request("PATCH", "/api/products/order", { productIds }),
   deleteProduct: (id) => request("DELETE", `/api/products/${id}`),
 
   // Staff
