@@ -132,6 +132,14 @@ function peso(value) {
   return `₱${(Number(value) || 0).toFixed(2)}`;
 }
 
+function dateValueToPHTString(value) {
+  if (!value) return "";
+  const date = value.toDate ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pht = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  return `${pht.getUTCFullYear()}-${String(pht.getUTCMonth() + 1).padStart(2, "0")}-${String(pht.getUTCDate()).padStart(2, "0")}`;
+}
+
 const ADVANCE_FILTERS = [
   { key: "all", label: "All" },
   { key: "tomorrow", label: "Tomorrow" },
@@ -142,6 +150,17 @@ function getPHTDateString(offsetDays = 0) {
   const pht = new Date(Date.now() + 8 * 60 * 60 * 1000);
   pht.setUTCDate(pht.getUTCDate() + offsetDays);
   return `${pht.getUTCFullYear()}-${String(pht.getUTCMonth() + 1).padStart(2, "0")}-${String(pht.getUTCDate()).padStart(2, "0")}`;
+}
+
+function millisecondsUntilNextPHTMidnight() {
+  const now = new Date();
+  const pht = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const nextMidnightUtc = Date.UTC(
+    pht.getUTCFullYear(),
+    pht.getUTCMonth(),
+    pht.getUTCDate() + 1,
+  ) - 8 * 60 * 60 * 1000;
+  return Math.max(1000, nextMidnightUtc - now.getTime() + 250);
 }
 
 function parsePickupMinutes(label) {
@@ -580,7 +599,7 @@ function PanelHeader({ col, count }) {
         <span style={{ fontSize: "1rem" }}>{col.icon}</span>
         <span
           style={{
-            color: col.color,
+            color: "#FFFFFF",
             fontWeight: 700,
             fontSize: "0.82rem",
             letterSpacing: "0.2px",
@@ -591,7 +610,7 @@ function PanelHeader({ col, count }) {
       </div>
       <span
         style={{
-          background: col.color,
+          background: "rgba(255,255,255,0.18)",
           color: "#FFFFFF",
           borderRadius: "20px",
           fontSize: "0.65rem",
@@ -607,6 +626,38 @@ function PanelHeader({ col, count }) {
   );
 }
 
+function CompletedOrderKpis({ orders }) {
+  const metrics = orders.reduce((summary, order) => {
+    const source = order.orderType === "WALK_IN" ? "walkIn" : "online";
+    summary[source].count += 1;
+    summary[source].sales += Number(order.total) || 0;
+    summary.totalQuantity += Number(order.totalQty) || 0;
+    summary.totalSales += Number(order.total) || 0;
+    return summary;
+  }, {
+    walkIn: { count: 0, sales: 0 },
+    online: { count: 0, sales: 0 },
+    totalQuantity: 0,
+    totalSales: 0,
+  });
+  const cards = [
+    { title: "Today's Walk-in Orders", primary: `${metrics.walkIn.count} orders`, secondary: `${peso(metrics.walkIn.sales)} sales` },
+    { title: "Today's Online Orders", primary: `${metrics.online.count} orders`, secondary: `${peso(metrics.online.sales)} sales` },
+    { title: "Today's Combined Sales", primary: `${metrics.totalQuantity} items`, secondary: `${peso(metrics.totalSales)} total sales` },
+  ];
+  return (
+    <section className="mb-4 grid gap-3 sm:grid-cols-3" aria-label="Today's completed order totals">
+      {cards.map((card) => (
+        <article key={card.title} className="rounded-2xl border border-[#E8E6ED] bg-white p-4 shadow-card">
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6F6B78]">{card.title}</p>
+          <p className="mt-3 text-2xl font-bold text-[#462C7D]">{card.primary}</p>
+          <p className="mt-1 text-sm font-semibold text-[#17151D]">{card.secondary}</p>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function OrderTablePanel({ col, orders, onView }) {
   return (
     <div
@@ -619,10 +670,10 @@ function OrderTablePanel({ col, orders, onView }) {
     >
       <PanelHeader col={col} count={orders.length} />
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-[0.78rem]">
-          <thead style={{ background: "#462C7D", color: "#6F6B78" }}>
+        <table className="w-full min-w-[720px] text-left text-[0.78rem]">
+          <thead style={{ background: "#462C7D", color: "#FFFFFF" }}>
             <tr>
-              {["Order", "Customer", "Contact", "Pickup", "Total", "Status", ""].map(
+              {["Order Number", "Customer Name", "Contact Number", "Total Paid Amount", "View Details"].map(
                 (heading) => (
                   <th key={heading} className="px-4 py-3 font-semibold">
                     {heading}
@@ -634,7 +685,7 @@ function OrderTablePanel({ col, orders, onView }) {
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center" colSpan={7} style={{ color: "#AAA6B0" }}>
+                <td className="px-4 py-8 text-center" colSpan={5} style={{ color: "#AAA6B0" }}>
                   No orders here
                 </td>
               </tr>
@@ -653,18 +704,12 @@ function OrderTablePanel({ col, orders, onView }) {
                   <td className="px-4 py-3" style={{ color: "#6F6B78" }}>
                     {order.contactNumber || "No contact number"}
                   </td>
-                  <td className="px-4 py-3" style={{ color: "#6F6B78" }}>
-                    {order.pickupDate} · {order.pickupLabel || "—"}
-                  </td>
                   <td className="px-4 py-3 font-semibold" style={{ color: "#462C7D" }}>
-                    {peso(order.total)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={order.status} />
+                    {peso(order.paymentAmount ?? order.total)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button type="button" style={btnStyle("outline")} onClick={() => onView(order)}>
-                      View
+                      View Details
                     </button>
                   </td>
                 </tr>
@@ -741,7 +786,7 @@ function OrderDetailsModal({
             />
             <DetailRow
               label="Reference Number"
-              value={paymentProof?.refNumber || order.paymentRefNumber}
+              value={paymentProof?.refNumber || order.paymentRefNumber || (order.transactionReferenceLast4 ? `•••• ${order.transactionReferenceLast4}` : null)}
             />
             <DetailRow
               label="Payment Timestamp"
@@ -864,7 +909,20 @@ export default function StaffOrdersPage() {
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedProof, setSelectedProof] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [metricsDate, setMetricsDate] = useState(() => getPHTDateString());
   const { showToast, ToastContainer } = useToast();
+
+  useEffect(() => {
+    let timer;
+    const scheduleReset = () => {
+      timer = window.setTimeout(() => {
+        setMetricsDate(getPHTDateString());
+        scheduleReset();
+      }, millisecondsUntilNextPHTMidnight());
+    };
+    scheduleReset();
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (COLUMNS.some((column) => column.status === requestedQueue)) {
@@ -1052,6 +1110,12 @@ export default function StaffOrdersPage() {
       .sort((a, b) => pickupSortValue(a).localeCompare(pickupSortValue(b)));
   }, [grouped]);
 
+  const completedToday = useMemo(() => {
+    return (grouped.COMPLETED || []).filter((order) =>
+      dateValueToPHTString(order.pickedUpAt || order.completedAt || order.updatedAt || order.createdAt) === metricsDate,
+    );
+  }, [grouped, metricsDate]);
+
   const activeCol = COLUMNS.find((c) => c.status === activeTab) || COLUMNS[0];
   const activeOrders = activeCol.status === "ADVANCE" ? advanceOrders : grouped[activeCol.status] || [];
   const sidebarItems = COLUMNS.map((col) => ({
@@ -1161,6 +1225,11 @@ export default function StaffOrdersPage() {
           onAction={handleAction}
           onView={openDetails}
         />
+      ) : activeCol.status === "COMPLETED" ? (
+        <>
+          <CompletedOrderKpis orders={completedToday} />
+          <OrderTablePanel col={activeCol} orders={activeOrders} onView={openDetails} />
+        </>
       ) : (
         <ColumnPanel
           col={activeCol}
