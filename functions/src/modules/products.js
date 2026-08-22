@@ -33,6 +33,10 @@ router.get("/", staffOrAdmin, async (req, res, next) => {
         dailyStockRemaining:
           dailyStockLimit === null ? null : Math.max(0, dailyStockLimit - dailyStockUsed),
       };
+    }).sort((a, b) => {
+      const aOrder = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : Number.MAX_SAFE_INTEGER;
+      const bOrder = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : Number.MAX_SAFE_INTEGER;
+      return aOrder - bOrder || String(a.name || "").localeCompare(String(b.name || ""));
     });
     res.json(products);
   } catch (err) {
@@ -59,6 +63,11 @@ router.post("/", onlyAdmin, async (req, res, next) => {
       imageUrl = getPublicUrl(fileName);
     }
 
+    const existingProducts = await db.collection("products").get();
+    const nextSortOrder = existingProducts.docs.reduce(
+      (highest, doc) => Math.max(highest, Number(doc.data().sortOrder) || 0),
+      0,
+    ) + 1;
     const ref = db.collection("products").doc();
     await ref.set({
       name: name.trim(),
@@ -69,11 +78,44 @@ router.post("/", onlyAdmin, async (req, res, next) => {
       imagePosition: normalizeImagePosition(imagePosition),
       isAvailable: isAvailable !== false,
       dailyStockLimit: dailyStockLimit || null,
+      sortOrder: nextSortOrder,
       createdAt: FieldValue.serverTimestamp(),
     });
 
     await writeAuditLog({ actorUid: req.user.uid, action: "product_create" });
     res.status(201).json({ productId: ref.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/products/order — persist the customer catalog sequence
+router.patch("/order", onlyAdmin, async (req, res, next) => {
+  try {
+    const productIds = Array.isArray(req.body.productIds) ? req.body.productIds : [];
+    if (!productIds.length || new Set(productIds).size !== productIds.length) {
+      return res.status(400).json({ error: "A unique productIds array is required." });
+    }
+
+    const refs = productIds.map((id) => db.collection("products").doc(id));
+    const snapshots = await db.getAll(...refs);
+    if (snapshots.some((snapshot) => !snapshot.exists)) {
+      return res.status(400).json({ error: "One or more products were not found." });
+    }
+
+    const batch = db.batch();
+    refs.forEach((ref, index) => batch.update(ref, {
+      sortOrder: index + 1,
+      updatedAt: FieldValue.serverTimestamp(),
+    }));
+    await batch.commit();
+    await writeAuditLog({
+      actorUid: req.user.uid,
+      actorName: req.user.email || req.user.uid,
+      action: "product_reorder",
+      details: { productIds },
+    });
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

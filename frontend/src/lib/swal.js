@@ -133,6 +133,7 @@ export const Swal = {
                 color: "#6F6B78",
                 fontSize: "0.9rem",
                 margin: "0 0 16px",
+                whiteSpace: "pre-line",
               },
             },
             [options.text],

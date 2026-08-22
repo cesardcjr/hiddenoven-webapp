@@ -32,6 +32,10 @@ export default function CatalogPage() {
     const matchesCategory = category === "All" || product.category?.toLowerCase() === category.toLowerCase();
     const term = search.trim().toLowerCase();
     return matchesCategory && (!term || product.name?.toLowerCase().includes(term) || product.description?.toLowerCase().includes(term));
+  }).sort((a, b) => {
+    const aOrder = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : Number.MAX_SAFE_INTEGER;
+    const bOrder = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : Number.MAX_SAFE_INTEGER;
+    return aOrder - bOrder || String(a.name || "").localeCompare(String(b.name || ""));
   }), [products, category, search]);
 
   function availableToAdd(product) {

@@ -1,9 +1,9 @@
 import { useState } from "react";
 
-export function FormField({ label, error, hint, children }) {
+export function FormField({ label, error, hint, required = false, children }) {
   return (
     <div className="mb-4">
-      {label && <label className="label">{label}</label>}
+      {label && <label className="label">{label}{required && <span className="ml-1 text-[#B42318]" aria-hidden="true">*</span>}</label>}
       {children}
       {hint && !error && (
         <p className="mt-1.5 text-xs text-[#6F6B78]">
@@ -19,10 +19,10 @@ export function FormField({ label, error, hint, children }) {
   );
 }
 
-export function TextInput({ label, error, hint, ...props }) {
+export function TextInput({ label, error, hint, required = false, ...props }) {
   return (
-    <FormField label={label} error={error} hint={hint}>
-      <input className="input" {...props} />
+    <FormField label={label} error={error} hint={hint} required={required}>
+      <input className="input" required={required} aria-required={required || undefined} {...props} />
     </FormField>
   );
 }

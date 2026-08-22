@@ -5,17 +5,38 @@ import { BrandMark } from "../ui/BrandMark";
 import { useNewOrderAlert } from "../../hooks/useNewOrderAlert";
 import { OrderQueueIcon, PointOfSaleIcon } from "../ui/Icons";
 
-export function StaffLayout({ children, orderCount = 0, statusItems = [], activeStatus = "", onStatusSelect, pageTitle = "" }) {
+function formatStaffDateTime(date) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Manila",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).formatToParts(date).map(({ type, value }) => [type, value]),
+  );
+  return `[${parts.weekday} - ${parts.day} ${parts.month}, ${parts.year} ${parts.hour}:${parts.minute} ${parts.dayPeriod}]`;
+}
+
+export function StaffLayout({ children, statusItems = [], activeStatus = "", onStatusSelect, pageTitle = "" }) {
   useNewOrderAlert();
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("staff_sidebar_collapsed") === "true");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   useEffect(() => {
     const media = window.matchMedia("(min-width: 768px)");
     const sync = () => setIsDesktop(media.matches);
     sync(); media.addEventListener("change", sync);
     return () => media.removeEventListener("change", sync);
+  }, []);
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 30000);
+    return () => window.clearInterval(timer);
   }, []);
   const compact = isDesktop && collapsed;
   const activeLabel = useMemo(() => statusItems.find((item) => item.status === activeStatus)?.label, [activeStatus, statusItems]);
@@ -42,7 +63,7 @@ export function StaffLayout({ children, orderCount = 0, statusItems = [], active
         <div className="border-t border-white/10 p-3"><div className={`flex items-center ${compact ? "justify-center" : "gap-3"}`}><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#462C7D]">{initials}</span>{!compact && <><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-white">{user?.email || "Staff"}</p><p className="mt-0.5 text-[0.65rem] text-white/50">Order team</p></div><button type="button" onClick={logout} className="rounded-lg px-2 py-1 text-xs font-semibold text-white/65 hover:bg-white/10 hover:text-white">Logout</button></>}</div></div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="portal-topbar flex h-[68px] shrink-0 items-center gap-3 px-4 sm:px-6"><button type="button" aria-label="Open staff navigation" onClick={() => setMobileOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-[#462C7D] hover:bg-[#F4F1F8] md:hidden">☰</button><div className="min-w-0 flex-1"><p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-[#817C89]">Staff portal</p><h1 className="truncate text-xl font-bold">{pageTitle || activeLabel || "Order queue"}</h1></div>{orderCount > 0 && <span className="rounded-full bg-[#462C7D] px-3 py-1.5 text-xs font-bold text-white">{orderCount} orders</span>}</header>
+        <header className="portal-topbar flex h-[68px] shrink-0 items-center gap-3 px-4 sm:px-6"><button type="button" aria-label="Open staff navigation" onClick={() => setMobileOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-[#462C7D] hover:bg-[#F4F1F8] md:hidden">☰</button><div className="min-w-0 flex-1"><p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-[#817C89]">Staff portal</p><h1 className="truncate text-xl font-bold">{pageTitle || activeLabel || "Order queue"}</h1></div><time className="shrink-0 text-right text-[0.66rem] font-bold text-[#462C7D] sm:text-xs" dateTime={currentTime.toISOString()}>{formatStaffDateTime(currentTime)}</time></header>
         <main className="portal-content flex-1 overflow-y-auto p-4 pb-16 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>

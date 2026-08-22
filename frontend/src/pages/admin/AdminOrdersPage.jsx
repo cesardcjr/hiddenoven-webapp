@@ -14,6 +14,8 @@ import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
 import { ReceiptPreview } from "../../components/ui/ReceiptPreview";
 
+const ORDERS_PER_PAGE = 15;
+
 function formatDateTime(value) {
   if (!value) return "—";
   const date = value.toDate ? value.toDate() : new Date(value);
@@ -57,6 +59,7 @@ export default function AdminOrdersPage() {
   const [selectedProof, setSelectedProof] = useState(null);
   const [proofLoading, setProofLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
@@ -75,6 +78,12 @@ export default function AdminOrdersPage() {
       o.contactNumber?.includes(term)
     );
   });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ORDERS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const pageOrders = filtered.slice(
+    (safePage - 1) * ORDERS_PER_PAGE,
+    safePage * ORDERS_PER_PAGE,
+  );
 
   const inputStyle = {
     background: "#FFFFFF",
@@ -138,7 +147,10 @@ export default function AdminOrdersPage() {
             style={inputStyle}
             placeholder="Search order no. or name…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             onFocus={(e) => (e.target.style.borderColor = "#462C7D")}
             onBlur={(e) =>
               (e.target.style.borderColor = "rgba(70,44,125,0.25)")
@@ -187,7 +199,7 @@ export default function AdminOrdersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((o) => (
+              {pageOrders.map((o) => (
                 <tr
                   key={o.orderId}
                   style={{
@@ -238,6 +250,25 @@ export default function AdminOrdersPage() {
           {filtered.length === 0 && (
             <div className="text-center py-12" style={{ color: "#6F6B78" }}>
               No orders found.
+            </div>
+          )}
+          {filtered.length > 0 && (
+            <div className="flex items-center justify-center gap-2 border-t border-[#E8E6ED] bg-white px-4 py-3">
+              <button type="button" className="btn-secondary min-h-9 px-3" aria-label="First page" disabled={safePage === 1} onClick={() => setPage(1)}>
+                &lt;&lt;
+              </button>
+              <button type="button" className="btn-secondary min-h-9 px-3" aria-label="Previous page" disabled={safePage === 1} onClick={() => setPage(Math.max(1, safePage - 1))}>
+                &lt;
+              </button>
+              <span className="min-w-16 text-center text-sm font-bold text-[#462C7D]" aria-live="polite">
+                {safePage} / {totalPages}
+              </span>
+              <button type="button" className="btn-secondary min-h-9 px-3" aria-label="Next page" disabled={safePage === totalPages} onClick={() => setPage(Math.min(totalPages, safePage + 1))}>
+                &gt;
+              </button>
+              <button type="button" className="btn-secondary min-h-9 px-3" aria-label="Last page" disabled={safePage === totalPages} onClick={() => setPage(totalPages)}>
+                &gt;&gt;
+              </button>
             </div>
           )}
         </div>

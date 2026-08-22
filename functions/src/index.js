@@ -5,6 +5,7 @@ admin.initializeApp();
 
 const app = require("./app");
 const { onOrderWrite } = require("./triggers/onOrderWrite");
+const { autoAcceptStaleOrders } = require("./scheduled/autoAcceptOrders");
 
 // Main API
 exports.api = functions.https.onRequest(app);
@@ -13,3 +14,10 @@ exports.api = functions.https.onRequest(app);
 exports.onOrderWrite = functions.firestore
   .document("orders/{orderId}")
   .onWrite(onOrderWrite);
+
+// Moves unattended intake orders into payment review after 30 minutes.
+// Advance and bulk orders are then routed to their matching staff panels by the UI.
+exports.autoAcceptOrders = functions.pubsub
+  .schedule("every 1 minutes")
+  .timeZone("Asia/Manila")
+  .onRun(autoAcceptStaleOrders);

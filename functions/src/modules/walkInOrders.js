@@ -19,6 +19,7 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
       items,
       paymentMethod = "CASH",
       paymentProvider = "",
+      transactionReferenceLast4 = "",
       amountPaid,
     } = req.body;
 
@@ -38,6 +39,10 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
     }
     if (normalizedMethod === "CASHLESS" && !String(paymentProvider).trim()) {
       return res.status(400).json({ error: "Select a cashless payment provider." });
+    }
+    const normalizedReferenceLast4 = String(transactionReferenceLast4).trim();
+    if (normalizedMethod === "CASHLESS" && !/^\d{4}$/.test(normalizedReferenceLast4)) {
+      return res.status(400).json({ error: "Enter the last 4 digits of the transaction reference number." });
     }
 
     const paidAmount = Number(amountPaid);
@@ -121,7 +126,7 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
         contactNumber: normalizedContactNumber || null,
         pickupDate: stockDate,
         pickupLabel: "Walk-in",
-        status: "NEW",
+        status: "COMPLETED",
         orderType: "WALK_IN",
         subtotal: transactionTotal,
         total: transactionTotal,
@@ -129,6 +134,8 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
         paymentMethod: normalizedMethod,
         paymentProvider:
           normalizedMethod === "CASH" ? "Cash" : String(paymentProvider).trim(),
+        transactionReferenceLast4:
+          normalizedMethod === "CASHLESS" ? normalizedReferenceLast4 : null,
         paymentAmount: paidAmount,
         changeAmount,
         paidAt: FieldValue.serverTimestamp(),
@@ -136,6 +143,10 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
         createdBy: req.user.uid,
         stockDate,
         createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        completedAt: FieldValue.serverTimestamp(),
+        pickedUpAt: FieldValue.serverTimestamp(),
+        pickedUpBy: req.user.uid,
       });
 
       orderItems.forEach((item) => {
@@ -166,14 +177,14 @@ router.post("/", requireRole("staff", "admin"), async (req, res, next) => {
       actorUid: req.user.uid,
       actorName: req.user.email || req.user.uid,
       action: "walk_in_order_create",
-      toStatus: "NEW",
+      toStatus: "COMPLETED",
       details: { paymentMethod: normalizedMethod, total, totalQty },
     });
 
     res.status(201).json({
       orderId: orderRef.id,
       orderNo,
-      status: "NEW",
+      status: "COMPLETED",
       orderType: "WALK_IN",
       total,
       changeAmount,

@@ -55,6 +55,7 @@ export default function AdminProductsPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const { showToast, ToastContainer } = useToast();
 
   async function loadProducts() {
@@ -150,6 +151,26 @@ export default function AdminProductsPage() {
     }
   }
 
+  async function moveProduct(productId, direction) {
+    const currentIndex = products.findIndex((product) => product.productId === productId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= products.length || reordering) return;
+    const previous = products;
+    const next = [...products];
+    [next[currentIndex], next[nextIndex]] = [next[nextIndex], next[currentIndex]];
+    setProducts(next);
+    setReordering(true);
+    try {
+      await api.reorderProducts(next.map((product) => product.productId));
+      showToast("Catalog order updated.", "success");
+    } catch (err) {
+      setProducts(previous);
+      showToast(err.message, "error");
+    } finally {
+      setReordering(false);
+    }
+  }
+
   return (
     <AdminLayout>
       <ToastContainer />
@@ -163,7 +184,7 @@ export default function AdminProductsPage() {
             Products
           </h2>
           <p className="text-[0.78rem] mt-0.5" style={{ color: "#6F6B78" }}>
-            Manage your bakery catalog
+            Manage your bakery catalog and arrange its customer-facing order
           </p>
         </div>
         <button onClick={openCreate} className="btn-primary">
@@ -175,7 +196,7 @@ export default function AdminProductsPage() {
         <Spinner className="py-20" />
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-          {products.map((p) => (
+          {products.map((p, index) => (
             <div
               key={p.productId}
               className="flex flex-col overflow-hidden rounded-xl transition-all duration-200"
@@ -266,11 +287,19 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-2 border-t border-[rgba(70,44,125,0.09)] px-4 pt-3">
+                <button type="button" className="btn-secondary min-h-9 px-2 text-xs" disabled={reordering || index === 0} onClick={() => moveProduct(p.productId, -1)} aria-label={`Move ${p.name} earlier in the catalog`}>
+                  ← Earlier
+                </button>
+                <button type="button" className="btn-secondary min-h-9 px-2 text-xs" disabled={reordering || index === products.length - 1} onClick={() => moveProduct(p.productId, 1)} aria-label={`Move ${p.name} later in the catalog`}>
+                  Later →
+                </button>
+              </div>
+
               {/* Footer actions */}
               <div
                 className="grid grid-cols-2 gap-2 px-4 pb-4"
                 style={{
-                  borderTop: "1px solid rgba(70,44,125,0.09)",
                   paddingTop: "12px",
                 }}
               >

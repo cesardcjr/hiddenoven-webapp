@@ -56,7 +56,13 @@ async function loadPosCatalog() {
     getDocs(collection(db, "payment_modes")),
   ]);
   return {
-    products: productSnapshot.docs.map((doc) => ({ productId: doc.id, ...doc.data() })),
+    products: productSnapshot.docs
+      .map((doc) => ({ productId: doc.id, ...doc.data() }))
+      .sort((a, b) => {
+        const aOrder = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : Number.MAX_SAFE_INTEGER;
+        const bOrder = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : Number.MAX_SAFE_INTEGER;
+        return aOrder - bOrder || String(a.name || "").localeCompare(String(b.name || ""));
+      }),
     paymentModes: paymentModeSnapshot.docs
       .map((doc) => ({ modeId: doc.id, ...doc.data() }))
       .filter((mode) => mode.isActive),
@@ -72,6 +78,7 @@ export default function StaffWalkInPage() {
   const [contactNumber, setContactNumber] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paymentProvider, setPaymentProvider] = useState("");
+  const [transactionReferenceLast4, setTransactionReferenceLast4] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -161,10 +168,31 @@ export default function StaffWalkInPage() {
       await Swal.fire({ title: "Payment Provider Required", text: "Choose the customer's cashless payment provider." });
       return;
     }
+    if (paymentMethod === "CASHLESS" && !/^\d{4}$/.test(transactionReferenceLast4)) {
+      await Swal.fire({ title: "Reference Number Required", text: "Enter the last 4 digits of the transaction reference number." });
+      return;
+    }
     if (paid < total) {
       await Swal.fire({ title: "Insufficient Payment", text: `Amount paid must be at least ${peso(total)}.` });
       return;
     }
+
+    const totalQuantity = cart.reduce((sum, item) => sum + item.qty, 0);
+    const confirmation = await Swal.fire({
+      title: "Confirm Walk-in Order",
+      text: [
+        `Customer: ${customerName.trim()}`,
+        `Items: ${totalQuantity}`,
+        `Payment: ${paymentMethod === "CASH" ? "Cash" : paymentProvider}`,
+        `Total: ${peso(total)}`,
+        `Amount paid: ${peso(paid)}`,
+        `Change: ${peso(change)}`,
+      ].join("\n"),
+      showCancelButton: true,
+      confirmButtonText: "Confirm",
+      cancelButtonText: "Cancel",
+    });
+    if (!confirmation.isConfirmed) return;
 
     setSubmitting(true);
     try {
@@ -174,12 +202,13 @@ export default function StaffWalkInPage() {
         items: cart.map((item) => ({ productId: item.productId, qty: item.qty })),
         paymentMethod,
         paymentProvider,
+        transactionReferenceLast4,
         amountPaid: paid,
       });
       await Swal.fire({
         title: "Walk-in Order Created",
         icon: "success",
-        text: `${result.orderNo} is now waiting in New Orders. Change: ${peso(result.changeAmount)}`,
+        text: `${result.orderNo} was recorded in Completed Orders. Change: ${peso(result.changeAmount)}`,
         confirmButtonText: "Okay",
       });
       setCart([]);
@@ -187,6 +216,7 @@ export default function StaffWalkInPage() {
       setContactNumber("");
       setPaymentMethod("CASH");
       setPaymentProvider("");
+      setTransactionReferenceLast4("");
       setAmountPaid("");
       loadPosCatalog().then(({ products: productData, paymentModes: modeData }) => {
         setProducts(productData);
@@ -212,7 +242,7 @@ export default function StaffWalkInPage() {
         <p className="page-subtitle">Record customer details, select products, and collect payment.</p>
       </header>
 
-      <section className="surface-card mb-6 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4" aria-label="Customer information">
+      <section className="surface-card mb-6 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5" aria-label="Customer information">
         <TextInput label="Full Name" value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Juan Dela Cruz" />
         <TextInput label="Mobile Number (Optional)" value={contactNumber} onChange={(event) => setContactNumber(event.target.value)} placeholder="09XXXXXXXXX" />
         <div>
@@ -226,9 +256,11 @@ export default function StaffWalkInPage() {
             ))}
           </div>
         </div>
-        {paymentMethod === "CASHLESS" ? (
+        {paymentMethod === "CASHLESS" ? (<>
           <div><label className="label" htmlFor="pos-provider">Provider</label>{paymentModes.length ? <select id="pos-provider" className="input" value={paymentProvider} onChange={(event) => setPaymentProvider(event.target.value)}><option value="">Select provider</option>{paymentModes.map((mode) => <option key={mode.modeId} value={mode.provider}>{mode.provider}</option>)}</select> : <input id="pos-provider" className="input" value={paymentProvider} onChange={(event) => setPaymentProvider(event.target.value)} placeholder="Enter provider" />}</div>
-        ) : <div className="hidden lg:block" />}
+          <div><label className="label" htmlFor="pos-reference">Last 4 digits of transaction reference</label><input id="pos-reference" className="input" inputMode="numeric" maxLength={4} value={transactionReferenceLast4} onChange={(event) => setTransactionReferenceLast4(event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="1234" /></div>
+        </>
+        ) : <div className="hidden lg:col-span-2 lg:block" />}
       </section>
 
       {loading ? <Spinner className="py-20" /> : (
