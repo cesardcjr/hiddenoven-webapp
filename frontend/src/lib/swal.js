@@ -140,6 +140,37 @@ export const Swal = {
           ),
         );
       }
+      if (Array.isArray(options.details) && options.details.length) {
+        const details = createElement("div", {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            gap: "9px",
+            margin: "2px 0 18px",
+            padding: "14px",
+            borderRadius: "12px",
+            background: "#F7F4FB",
+            textAlign: "left",
+          },
+        });
+        options.details.forEach(({ label, value }) => {
+          details.append(
+            createElement("div", {
+              style: {
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: "16px",
+                fontSize: "0.9rem",
+              },
+            }, [
+              createElement("strong", { style: { color: "#17151D", fontWeight: "800" } }, [label]),
+              createElement("span", { style: { color: "#17151D", fontWeight: "400", textAlign: "right" } }, [value]),
+            ]),
+          );
+        });
+        box.append(details);
+      }
 
       let inputEl = null;
       if (options.input === "textarea" || options.input === "text") {

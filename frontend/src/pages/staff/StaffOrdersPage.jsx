@@ -643,7 +643,7 @@ function CompletedOrderKpis({ orders }) {
   const cards = [
     { title: "Today's Walk-in Orders", primary: `${metrics.walkIn.count} orders`, secondary: `${peso(metrics.walkIn.sales)} sales` },
     { title: "Today's Online Orders", primary: `${metrics.online.count} orders`, secondary: `${peso(metrics.online.sales)} sales` },
-    { title: "Today's Combined Sales", primary: `${metrics.totalQuantity} items`, secondary: `${peso(metrics.totalSales)} total sales` },
+    { title: "Today's Combined Sales", primary: `Total quantity: ${metrics.totalQuantity}`, secondary: `${peso(metrics.totalSales)} total sales` },
   ];
   return (
     <section className="mb-4 grid gap-3 sm:grid-cols-3" aria-label="Today's completed order totals">
@@ -674,8 +674,8 @@ function OrderTablePanel({ col, orders, onView }) {
           <thead style={{ background: "#462C7D", color: "#FFFFFF" }}>
             <tr>
               {["Order Number", "Customer Name", "Contact Number", "Total Paid Amount", "View Details"].map(
-                (heading) => (
-                  <th key={heading} className="px-4 py-3 font-semibold">
+                (heading, index) => (
+                  <th key={heading} className={`px-4 py-3 font-semibold ${index === 4 ? "text-right" : ""}`}>
                     {heading}
                   </th>
                 ),
