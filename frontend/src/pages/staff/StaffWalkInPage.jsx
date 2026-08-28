@@ -177,17 +177,13 @@ export default function StaffWalkInPage() {
       return;
     }
 
-    const totalQuantity = cart.reduce((sum, item) => sum + item.qty, 0);
     const confirmation = await Swal.fire({
       title: "Confirm Walk-in Order",
-      text: [
-        `Customer: ${customerName.trim()}`,
-        `Items: ${totalQuantity}`,
-        `Payment: ${paymentMethod === "CASH" ? "Cash" : paymentProvider}`,
-        `Total: ${peso(total)}`,
-        `Amount paid: ${peso(paid)}`,
-        `Change: ${peso(change)}`,
-      ].join("\n"),
+      details: [
+        { label: "Total", value: peso(total) },
+        { label: "Amount Paid", value: peso(paid) },
+        { label: "Change", value: peso(change) },
+      ],
       showCancelButton: true,
       confirmButtonText: "Confirm",
       cancelButtonText: "Cancel",
@@ -258,7 +254,7 @@ export default function StaffWalkInPage() {
         </div>
         {paymentMethod === "CASHLESS" ? (<>
           <div><label className="label" htmlFor="pos-provider">Provider</label>{paymentModes.length ? <select id="pos-provider" className="input" value={paymentProvider} onChange={(event) => setPaymentProvider(event.target.value)}><option value="">Select provider</option>{paymentModes.map((mode) => <option key={mode.modeId} value={mode.provider}>{mode.provider}</option>)}</select> : <input id="pos-provider" className="input" value={paymentProvider} onChange={(event) => setPaymentProvider(event.target.value)} placeholder="Enter provider" />}</div>
-          <div><label className="label" htmlFor="pos-reference">Last 4 digits of transaction reference</label><input id="pos-reference" className="input" inputMode="numeric" maxLength={4} value={transactionReferenceLast4} onChange={(event) => setTransactionReferenceLast4(event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="1234" /></div>
+          <div><label className="label" htmlFor="pos-reference">Last 4 digits of transaction reference</label><input id="pos-reference" className="input" inputMode="numeric" maxLength={4} value={transactionReferenceLast4} onChange={(event) => setTransactionReferenceLast4(event.target.value.replace(/\D/g, "").slice(0, 4))} /></div>
         </>
         ) : <div className="hidden lg:col-span-2 lg:block" />}
       </section>
