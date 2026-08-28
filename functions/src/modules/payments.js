@@ -8,25 +8,19 @@ const {
   adjustPickupSlotCounter,
 } = require("../utils/db");
 const { requireRole } = require("../middleware/auth");
+const { decodeImageBase64 } = require("../utils/validate");
 
 const router = express.Router();
 
 function decodeQrImage(imageBase64, mimeType) {
-  if (!imageBase64 || !mimeType) return null;
-  if (!mimeType.startsWith("image/")) {
-    const error = new Error("QR code must be an image file.");
+  if (!imageBase64 && !mimeType) return null;
+  const decoded = decodeImageBase64(imageBase64, mimeType);
+  if (decoded.error) {
+    const error = new Error(decoded.error);
     error.status = 400;
     throw error;
   }
-
-  const buffer = Buffer.from(imageBase64, "base64");
-  if (buffer.length > 5 * 1024 * 1024) {
-    const error = new Error("QR code image must be under 5MB.");
-    error.status = 400;
-    throw error;
-  }
-
-  return buffer;
+  return decoded.buffer;
 }
 
 function validatePaymentMode({ provider, accountNumber }) {
@@ -47,7 +41,7 @@ async function uploadQrCode(modeId, imageBase64, mimeType) {
   const buffer = decodeQrImage(imageBase64, mimeType);
   if (!buffer) return null;
 
-  const ext = mimeType.includes("png") ? "png" : "jpg";
+  const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
   const fileName = `payment_mode_qrs/${modeId}/${Date.now()}.${ext}`;
   const file = bucket.file(fileName);
   await file.save(buffer, { metadata: { contentType: mimeType } });

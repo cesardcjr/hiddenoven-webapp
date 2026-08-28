@@ -1,8 +1,8 @@
-const admin = require("firebase-admin");
-const { FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 
-const db = admin.firestore();
-const bucket = admin.storage().bucket();
+const db = getFirestore();
+const bucket = getStorage().bucket();
 
 const ACTIVE_BOOKING_STATUSES = new Set([
   "NEW",
@@ -57,8 +57,7 @@ async function writeAuditLog({
  * Format: HO-YYYYMMDD-XXXX (e.g. HO-20240101-0001)
  */
 async function generateOrderNumber() {
-  const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
+  const dateStr = getPHTDateString().replace(/-/g, "");
   const counterRef = db.collection("_counters").doc(dateStr);
 
   const newCount = await db.runTransaction(async (t) => {
