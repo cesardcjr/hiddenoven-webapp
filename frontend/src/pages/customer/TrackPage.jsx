@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { CustomerLayout } from "../../components/layout/CustomerLayout";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -41,22 +41,31 @@ function TrackingResult({ order, onBackHome }) {
 
 export default function TrackPage() {
   const [params] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ orderNo: params.get("orderNo") || "", contactNumber: params.get("contactNumber") || "", customerName: params.get("customerName") || "" });
+  const directContactNumber = typeof location.state?.contactNumber === "string"
+    ? location.state.contactNumber
+    : "";
+  const [form, setForm] = useState({ orderNo: params.get("orderNo") || "", contactNumber: directContactNumber, customerName: "" });
   const [order, setOrder] = useState(null);
-  const [trackingOrderNo, setTrackingOrderNo] = useState(params.get("orderNo") || "");
+  const [trackingQuery, setTrackingQuery] = useState(() => {
+    const orderNo = params.get("orderNo") || "";
+    return orderNo && directContactNumber
+      ? { orderNo, contactNumber: directContactNumber }
+      : null;
+  });
   const [showResult, setShowResult] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rejectionAlertedOrderNo, setRejectionAlertedOrderNo] = useState("");
 
   useEffect(() => {
-    if (!trackingOrderNo) return undefined;
-    const interval = window.setInterval(async () => { try { setOrder(await api.trackOrder({ orderNo: trackingOrderNo })); } catch { window.clearInterval(interval); } }, 30000);
+    if (!trackingQuery) return undefined;
+    const interval = window.setInterval(async () => { try { setOrder(await api.trackOrder(trackingQuery)); } catch { window.clearInterval(interval); } }, 30000);
     return () => window.clearInterval(interval);
-  }, [trackingOrderNo]);
+  }, [trackingQuery]);
 
-  useEffect(() => { if (params.get("orderNo") || (params.get("customerName") && params.get("contactNumber"))) handleSearch(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (params.get("orderNo") && directContactNumber) handleSearch(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (order?.status !== "PAYMENT_REJECTED" || rejectionAlertedOrderNo === order.orderNo) return;
     setRejectionAlertedOrderNo(order.orderNo);
@@ -66,11 +75,15 @@ export default function TrackPage() {
   async function handleSearch() {
     setError(""); setLoading(true);
     try {
-      const query = form.orderNo ? { orderNo: form.orderNo } : { contactNumber: form.contactNumber, customerName: form.customerName };
+      const query = form.orderNo
+        ? { orderNo: form.orderNo.trim(), contactNumber: form.contactNumber.trim() }
+        : { contactNumber: form.contactNumber.trim(), customerName: form.customerName.trim() };
+      if (!query.contactNumber) throw new Error("Mobile number is required.");
+      if (!form.orderNo && !query.customerName) throw new Error("Name is required when no order number is provided.");
       const result = await api.trackOrder(query);
       const found = Array.isArray(result) ? result[0] : result;
-      setOrder(found); setTrackingOrderNo(found.orderNo || ""); setShowResult(true);
-    } catch (requestError) { setError(requestError.message); setOrder(null); setTrackingOrderNo(""); setShowResult(false); } finally { setLoading(false); }
+      setOrder(found); setTrackingQuery({ orderNo: found.orderNo || query.orderNo, contactNumber: query.contactNumber }); setShowResult(true);
+    } catch (requestError) { setError(requestError.message); setOrder(null); setTrackingQuery(null); setShowResult(false); } finally { setLoading(false); }
   }
 
   return (
@@ -81,7 +94,7 @@ export default function TrackPage() {
           <div className="surface-card p-5 sm:p-7">
             <TextInput label="Order number" value={form.orderNo} onChange={(event) => setForm({ ...form, orderNo: event.target.value })} placeholder="HO-20240101-0001" />
             <div className="my-5 flex items-center gap-3 text-xs text-[#817C89]"><span className="h-px flex-1 bg-[#E8E6ED]" /><span>or search by contact</span><span className="h-px flex-1 bg-[#E8E6ED]" /></div>
-            <TextInput label="Mobile number" value={form.contactNumber} onChange={(event) => setForm({ ...form, contactNumber: event.target.value })} placeholder="09XXXXXXXXX" />
+            <TextInput required label="Mobile number" value={form.contactNumber} onChange={(event) => setForm({ ...form, contactNumber: event.target.value })} placeholder="09XXXXXXXXX" />
             <TextInput label="Your name" value={form.customerName} onChange={(event) => setForm({ ...form, customerName: event.target.value })} placeholder="Juan Dela Cruz" />
             {error && <div className="mb-4 rounded-2xl bg-[#FFF1F0] p-4 text-sm text-[#B42318]" role="alert"><strong>Order not found.</strong> {error}. Double-check your details and try again.</div>}
             <button onClick={handleSearch} disabled={loading} className="btn-primary w-full">{loading ? "Searching…" : "Track order"}</button>

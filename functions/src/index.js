@@ -1,7 +1,7 @@
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
+const functions = require("firebase-functions/v1");
+const { initializeApp } = require("firebase-admin/app");
 
-admin.initializeApp();
+initializeApp();
 
 const app = require("./app");
 const { onOrderWrite } = require("./triggers/onOrderWrite");

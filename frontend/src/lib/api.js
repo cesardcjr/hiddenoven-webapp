@@ -65,8 +65,6 @@ export const api = {
   placeOrder: (payload) => request("POST", "/api/orders", payload),
   placeOrderWithPayment: (payload) =>
     request("POST", "/api/orders/with-payment", payload),
-  uploadProof: (orderId, payload) =>
-    request("POST", `/api/orders/${orderId}/proof`, payload),
   trackOrder: (params) =>
     request("GET", `/api/orders/track?${new URLSearchParams(params)}`),
   updateStatus: (orderId, status, metadata = {}) =>

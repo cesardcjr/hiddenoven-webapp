@@ -1,5 +1,5 @@
 const express = require("express");
-const admin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth");
 const { FieldValue } = require("firebase-admin/firestore");
 const { db, writeAuditLog } = require("../utils/db");
 const { requireRole } = require("../middleware/auth");
@@ -28,10 +28,10 @@ router.post("/", onlyAdmin, async (req, res, next) => {
     }
 
     // Create Firebase Auth user
-    const userRecord = await admin.auth().createUser({ email, password, displayName: name });
+    const userRecord = await getAuth().createUser({ email, password, displayName: name });
 
     // Set role custom claim
-    await admin.auth().setCustomUserClaims(userRecord.uid, { role: "staff" });
+    await getAuth().setCustomUserClaims(userRecord.uid, { role: "staff" });
 
     // Write to Firestore users collection
     await db.collection("users").doc(userRecord.uid).set({
@@ -67,7 +67,7 @@ router.put("/:uid", onlyAdmin, async (req, res, next) => {
     if (typeof isActive === "boolean") {
       updates.isActive = isActive;
       // Disable/enable Firebase Auth account
-      await admin.auth().updateUser(req.params.uid, { disabled: !isActive });
+      await getAuth().updateUser(req.params.uid, { disabled: !isActive });
     }
 
     await ref.update(updates);
@@ -83,7 +83,7 @@ router.delete("/:uid", onlyAdmin, async (req, res, next) => {
   try {
     const ref = db.collection("users").doc(req.params.uid);
     await ref.update({ isActive: false, updatedAt: FieldValue.serverTimestamp() });
-    await admin.auth().updateUser(req.params.uid, { disabled: true });
+    await getAuth().updateUser(req.params.uid, { disabled: true });
     await writeAuditLog({ actorUid: req.user.uid, action: "staff_deactivate" });
     res.json({ success: true });
   } catch (err) {

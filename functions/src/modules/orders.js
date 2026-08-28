@@ -14,6 +14,7 @@ const {
   isValidPHMobile,
   validateOrderItems,
   isValidTransition,
+  decodeImageBase64,
 } = require("../utils/validate");
 const { verifyToken, requireRole } = require("../middleware/auth");
 const { isPickupSlotAllowed } = require("../utils/pickupAvailability");
@@ -32,7 +33,8 @@ router.post("/", async (req, res, next) => {
     if (
       !customerName ||
       typeof customerName !== "string" ||
-      customerName.trim().length < 2
+      customerName.trim().length < 2 ||
+      customerName.trim().length > 100
     ) {
       return res
         .status(400)
@@ -242,7 +244,8 @@ router.post("/with-payment", async (req, res, next) => {
     if (
       !customerName ||
       typeof customerName !== "string" ||
-      customerName.trim().length < 2
+      customerName.trim().length < 2 ||
+      customerName.trim().length > 100
     ) {
       return res
         .status(400)
@@ -263,13 +266,14 @@ router.post("/with-payment", async (req, res, next) => {
     if (!pickupConfigId) {
       return res.status(400).json({ error: "A pickup time slot is required." });
     }
-    if (!imageBase64 || !mimeType || !mimeType.startsWith("image/")) {
-      return res.status(400).json({ error: "Payment screenshot is required." });
+    const decodedProof = decodeImageBase64(imageBase64, mimeType);
+    if (decodedProof.error) {
+      return res.status(400).json({ error: decodedProof.error });
     }
-    if (!refNumber || typeof refNumber !== "string") {
+    if (typeof refNumber !== "string" || !/^\d{4}$/.test(refNumber.trim())) {
       return res
         .status(400)
-        .json({ error: "A GCash/bank reference number is required." });
+        .json({ error: "The last 4 digits of the payment reference are required." });
     }
     const paidAmount = Number(paymentAmount);
     if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
@@ -281,9 +285,16 @@ router.post("/with-payment", async (req, res, next) => {
         .json({ error: "A bank or service provider is required." });
     }
 
-    const proofBuffer = Buffer.from(imageBase64, "base64");
-    if (proofBuffer.length > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: "Image must be under 5MB." });
+    const proofBuffer = decodedProof.buffer;
+
+    const normalizedProvider = paymentProvider.trim();
+    const providerSnap = await db
+      .collection("payment_modes")
+      .where("provider", "==", normalizedProvider)
+      .limit(5)
+      .get();
+    if (!providerSnap.docs.some((doc) => doc.data().isActive === true)) {
+      return res.status(400).json({ error: "Select an active payment provider." });
     }
 
     const productIds = [...new Set(items.map((i) => i.productId))];
@@ -321,21 +332,23 @@ router.post("/with-payment", async (req, res, next) => {
     });
 
     const initialStatus = "NEW";
-    if (paidAmount < subtotal) {
+    if (Math.abs(paidAmount - subtotal) > 0.01) {
       return res
         .status(400)
-        .json({ error: "Payment amount must be at least the order total." });
+        .json({ error: "Payment amount must match the order total." });
     }
 
     const orderNo = await generateOrderNumber();
     const orderRef = db.collection("orders").doc();
     const proofRef = db.collection("payment_proofs").doc();
-    const fileName = `payment_proofs/${orderRef.id}/${Date.now()}.jpg`;
+    const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+    const fileName = `payment_proofs/${orderRef.id}/${Date.now()}.${extension}`;
     const file = bucket.file(fileName);
 
     await file.save(proofBuffer, { metadata: { contentType: mimeType } });
 
-    await db.runTransaction(async (transaction) => {
+    try {
+      await db.runTransaction(async (transaction) => {
       const configRef = db
         .collection("pickup_time_configs")
         .doc(pickupConfigId);
@@ -416,7 +429,7 @@ router.post("/with-payment", async (req, res, next) => {
         subtotal,
         total: subtotal,
         totalQty,
-        paymentProvider: paymentProvider.trim(),
+        paymentProvider: normalizedProvider,
         paymentAmount: paidAmount,
         paymentRefNumber: refNumber.trim(),
         paidAt: FieldValue.serverTimestamp(),
@@ -446,7 +459,7 @@ router.post("/with-payment", async (req, res, next) => {
         imageUrl: "",
         storagePath: fileName,
         refNumber: refNumber.trim(),
-        paymentProvider: paymentProvider.trim(),
+        paymentProvider: normalizedProvider,
         amount: paidAmount,
         verifiedStatus: "pending",
         verifiedBy: null,
@@ -459,7 +472,13 @@ router.post("/with-payment", async (req, res, next) => {
         delta: 1,
         transaction,
       });
-    });
+      });
+    } catch (transactionError) {
+      await file.delete({ ignoreNotFound: true }).catch((cleanupError) => {
+        console.error("Failed to remove orphaned payment proof:", cleanupError);
+      });
+      throw transactionError;
+    }
 
     res.status(201).json({
       orderId: orderRef.id,
@@ -472,53 +491,6 @@ router.post("/with-payment", async (req, res, next) => {
   }
 });
 
-router.post("/:id/proof", async (req, res, next) => {
-  try {
-    const { id: orderId } = req.params;
-    const { imageBase64, mimeType, refNumber } = req.body;
-
-    if (!imageBase64 || !mimeType || !mimeType.startsWith("image/")) {
-      return res.status(400).json({ error: "A valid image file is required." });
-    }
-    if (!refNumber || typeof refNumber !== "string") {
-      return res
-        .status(400)
-        .json({ error: "A GCash/bank reference number is required." });
-    }
-
-    const orderSnap = await db.collection("orders").doc(orderId).get();
-    if (!orderSnap.exists)
-      return res.status(404).json({ error: "Order not found." });
-
-    // Upload to Cloud Storage
-    const fileName = `payment_proofs/${orderId}/${Date.now()}.jpg`;
-    const file = bucket.file(fileName);
-    const buffer = Buffer.from(imageBase64, "base64");
-
-    if (buffer.length > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: "Image must be under 5MB." });
-    }
-
-    await file.save(buffer, { metadata: { contentType: mimeType } });
-
-    // Write payment_proofs document
-    const proofRef = db.collection("payment_proofs").doc();
-    await proofRef.set({
-      orderId,
-      imageUrl: "",
-      storagePath: fileName,
-      refNumber: refNumber.trim(),
-      verifiedStatus: "pending",
-      verifiedBy: null,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
-    res.status(201).json({ proofId: proofRef.id });
-  } catch (err) {
-    next(err);
-  }
-});
-
 // ─── GET /api/orders/track — Track order (public) ────────────────────────────
 router.get("/track", async (req, res, next) => {
   try {
@@ -526,9 +498,18 @@ router.get("/track", async (req, res, next) => {
 
     let query;
 
-    if (orderNo) {
-      query = db.collection("orders").where("orderNo", "==", orderNo);
+    if (orderNo && contactNumber) {
+      if (!isValidPHMobile(contactNumber)) {
+        return res.status(400).json({ error: "A valid PH mobile number is required." });
+      }
+      query = db
+        .collection("orders")
+        .where("orderNo", "==", String(orderNo).trim())
+        .where("contactNumber", "==", String(contactNumber).trim());
     } else if (contactNumber && customerName) {
+      if (!isValidPHMobile(contactNumber)) {
+        return res.status(400).json({ error: "A valid PH mobile number is required." });
+      }
       query = db
         .collection("orders")
         .where("contactNumber", "==", contactNumber)
@@ -538,13 +519,20 @@ router.get("/track", async (req, res, next) => {
     } else {
       return res
         .status(400)
-        .json({ error: "Provide orderNo, or contactNumber + customerName." });
+        .json({ error: "Provide orderNo + contactNumber, or contactNumber + customerName." });
     }
 
     const snap = await query.get();
     if (snap.empty) return res.status(404).json({ error: "No orders found." });
 
-    const orders = snap.docs.map((d) => ({ orderId: d.id, ...d.data() }));
+    const orders = snap.docs.map((d) => {
+      const order = { orderId: d.id, ...d.data() };
+      const mobile = String(order.contactNumber || "");
+      order.contactNumber = mobile.length >= 4
+        ? `${mobile.slice(0, 4)}${"*".repeat(Math.max(0, mobile.length - 6))}${mobile.slice(-2)}`
+        : "";
+      return order;
+    });
     res.json(orderNo ? orders[0] : orders);
   } catch (err) {
     next(err);

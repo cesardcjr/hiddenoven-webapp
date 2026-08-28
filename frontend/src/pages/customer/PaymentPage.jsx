@@ -42,7 +42,7 @@ export default function PaymentPage() {
   function handleFile(event) {
     const selectedFile = event.target.files[0];
     if (!selectedFile) return;
-    if (!selectedFile.type.startsWith("image/")) { setError("Please upload an image file."); return; }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)) { setError("Please upload a JPG, PNG, or WebP image."); return; }
     if (selectedFile.size > 5 * 1024 * 1024) { setError("Image must be under 5MB."); return; }
     setError(""); setFile(selectedFile);
     if (preview) URL.revokeObjectURL(preview);
@@ -71,7 +71,10 @@ export default function PaymentPage() {
       const result = await api.placeOrderWithPayment({ ...checkoutDraft, imageBase64: await readFileAsBase64(file), mimeType: file.type, refNumber: refNumber.trim(), paymentAmount: amount, paymentProvider: paymentProvider.trim() });
       clearCart(); sessionStorage.removeItem("checkout_draft");
       await Swal.fire({ title: "Sweet!", text: "Thank you for your order!", imageUrl: hiddenOvenLogo, imageWidth: 160, imageHeight: 160, imageAlt: "The Hidden Oven logo", confirmButtonText: "Track my order", confirmButtonColor: "#462C7D" });
-      navigate(`/track?orderNo=${encodeURIComponent(result.orderNo)}&direct=true`, { replace: true });
+      navigate(`/track?orderNo=${encodeURIComponent(result.orderNo)}&direct=true`, {
+        replace: true,
+        state: { contactNumber: checkoutDraft.contactNumber },
+      });
     } catch (requestError) { setError(requestError.message); } finally { setSubmitting(false); }
   }
 
@@ -93,7 +96,7 @@ export default function PaymentPage() {
               <h2 className="mb-4 text-base font-bold">Pickup Summary</h2>
               {checkoutDraft ? <div className="mb-5 rounded-2xl bg-[#F4F1F8] p-4 text-sm"><div className="flex justify-between gap-3"><span className="text-[#6F6B78]">Customer</span><strong>{checkoutDraft.customerName}</strong></div><div className="mt-2 flex justify-between gap-3"><span className="text-[#6F6B78]">Pickup</span><strong className="text-right">{checkoutDraft.pickupDate}, {checkoutDraft.pickupLabel}</strong></div><div className="mt-3 flex justify-between border-t border-[#D9D1E8] pt-3"><span className="font-semibold">Total</span><strong className="text-lg text-[#462C7D]">₱{Number(checkoutDraft.total || 0).toFixed(2)}</strong></div></div> : <div className="mb-5 rounded-2xl bg-[#FFF1F0] p-4 text-sm text-[#B42318]">No checkout details found. Return to your cart and try again.</div>}
 
-              <div className="mb-4"><label className="label" htmlFor="payment-proof">Payment screenshot<span className="ml-1 text-[#B42318]" aria-hidden="true">*</span></label><label className="flex min-h-40 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#CFC4E2] bg-[#F7F4FB] p-5 text-center transition-colors hover:border-[#462C7D]" htmlFor="payment-proof">{preview ? <img src={preview} alt="Payment screenshot preview" className="max-h-56 rounded-xl object-contain" /> : <><span className="text-3xl">＋</span><span className="mt-2 text-sm font-semibold text-[#462C7D]">Upload payment proof</span><span className="mt-1 text-xs text-[#6F6B78]">JPG or PNG, up to 5MB</span></>}<input required aria-required="true" id="payment-proof" type="file" accept="image/*" onChange={handleFile} className="hidden" /></label></div>
+              <div className="mb-4"><label className="label" htmlFor="payment-proof">Payment screenshot<span className="ml-1 text-[#B42318]" aria-hidden="true">*</span></label><label className="flex min-h-40 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#CFC4E2] bg-[#F7F4FB] p-5 text-center transition-colors hover:border-[#462C7D]" htmlFor="payment-proof">{preview ? <img src={preview} alt="Payment screenshot preview" className="max-h-56 rounded-xl object-contain" /> : <><span className="text-3xl">＋</span><span className="mt-2 text-sm font-semibold text-[#462C7D]">Upload payment proof</span><span className="mt-1 text-xs text-[#6F6B78]">JPG, PNG, or WebP, up to 5MB</span></>}<input required aria-required="true" id="payment-proof" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} className="hidden" /></label></div>
               <TextInput required label="Last 4 digits of reference number" value={refNumber} onChange={(event) => setRefNumber(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" maxLength={4} />
               {error && <p className="mb-4 rounded-xl bg-[#FFF1F0] p-3 text-xs font-medium text-[#B42318]" role="alert">{error}</p>}
               <button onClick={handleSubmit} disabled={submitting || !checkoutDraft} className="btn-primary w-full">{submitting ? "Submitting…" : "Submit payment"}</button>

@@ -2,6 +2,7 @@ const express = require("express");
 const { FieldValue } = require("firebase-admin/firestore");
 const { db, bucket, writeAuditLog, getPublicUrl, getPHTDateString } = require("../utils/db");
 const { requireRole } = require("../middleware/auth");
+const { decodeImageBase64 } = require("../utils/validate");
 
 const router = express.Router();
 const onlyAdmin = requireRole("admin");
@@ -55,10 +56,12 @@ router.post("/", onlyAdmin, async (req, res, next) => {
 
     let imageUrl = "";
     if (imageBase64 && mimeType) {
-      const fileName = `product_images/${Date.now()}_${name.replace(/\s+/g, "_")}`;
+      const decoded = decodeImageBase64(imageBase64, mimeType);
+      if (decoded.error) return res.status(400).json({ error: decoded.error });
+      const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+      const fileName = `product_images/${Date.now()}_${name.replace(/\s+/g, "_")}.${extension}`;
       const file = bucket.file(fileName);
-      const buffer = Buffer.from(imageBase64, "base64");
-      await file.save(buffer, { metadata: { contentType: mimeType } });
+      await file.save(decoded.buffer, { metadata: { contentType: mimeType } });
       await file.makePublic();
       imageUrl = getPublicUrl(fileName);
     }
@@ -138,10 +141,13 @@ router.put("/:id", onlyAdmin, async (req, res, next) => {
     if (imageFit !== undefined) updates.imageFit = normalizeImageFit(imageFit);
     if (imagePosition !== undefined) updates.imagePosition = normalizeImagePosition(imagePosition);
     if (imageBase64 && mimeType) {
+      const decoded = decodeImageBase64(imageBase64, mimeType);
+      if (decoded.error) return res.status(400).json({ error: decoded.error });
       const currentName = name || snap.data().name || "product";
-      const fileName = `product_images/${Date.now()}_${currentName.replace(/\s+/g, "_")}`;
+      const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+      const fileName = `product_images/${Date.now()}_${currentName.replace(/\s+/g, "_")}.${extension}`;
       const file = bucket.file(fileName);
-      await file.save(Buffer.from(imageBase64, "base64"), { metadata: { contentType: mimeType } });
+      await file.save(decoded.buffer, { metadata: { contentType: mimeType } });
       await file.makePublic();
       updates.imageUrl = getPublicUrl(fileName);
     }

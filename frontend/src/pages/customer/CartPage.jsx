@@ -124,7 +124,7 @@ export default function CartPage() {
         <section className="surface-card py-20 text-center"><div className="mb-4 text-5xl">🛒</div><h2 className="text-xl font-bold">Your cart is empty</h2><p className="mx-auto mt-2 max-w-sm text-sm text-[#6F6B78]">Find something delicious in today’s menu and add it here.</p><button onClick={() => navigate("/catalog")} className="btn-primary mt-6">Browse the menu</button></section>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-          <section className="order-2 space-y-3 lg:order-1" aria-label="Order summary">
+          <section className="order-2 min-w-0 space-y-3 lg:order-1" aria-label="Order summary">
             <h2 className="mb-4 text-lg font-bold">Order Summary</h2>
             {items.map((item) => {
               const remaining = getDailyStockRemaining(item);
@@ -144,7 +144,7 @@ export default function CartPage() {
             </div>
           </section>
 
-          <aside className="surface-card order-1 h-fit self-start p-5 sm:p-6 lg:order-2">
+          <aside className="surface-card order-1 min-w-0 h-fit self-start p-5 sm:p-6 lg:order-2">
             <h2 className="mb-5 text-lg font-bold">Order Form</h2>
             <TextInput required label="Full Name" value={form.customerName} onChange={(event) => setForm({ ...form, customerName: event.target.value })} error={errors.customerName} placeholder="Juan Dela Cruz" />
             <TextInput required label="Mobile number" value={form.contactNumber} onChange={(event) => setForm({ ...form, contactNumber: event.target.value })} error={errors.contactNumber} placeholder="09XXXXXXXXX" />
